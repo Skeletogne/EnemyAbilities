@@ -36,6 +36,11 @@ Adds the following:
 - .score for the PluginConfig and for some AISkillDriver utils that I filched from Enemies++
 - rune580 for RiskOfOptions
 
+# Changelog
+
+## 1.0.1
+- Updated manifest to include git repository link. that's it
+
 
 
 
