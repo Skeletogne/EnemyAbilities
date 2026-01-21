@@ -1,6 +1,6 @@
 {
     "name": "EnemyAbilities",
-    "description": "A mod that adds more skills for monsters.'",
+    "description": "A mod that adds more skills for monsters.",
     "version_number": "1.1.0",
     "dependencies": [ "RiskofThunder-R2API_RecalculateStats-1.6.5", "RiskofThunder-R2API_Prefab-1.1.1" ],
     "optional_dependencies": [ "rune580-Risk_Of_Options-2.8.6" ],

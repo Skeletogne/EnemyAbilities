@@ -44,6 +44,7 @@ Adds the following:
 
 ## 1.1.1
 - Local idiot forgets to update the README properly
+- Got rid of the accursed extra apostrophe in the manifest description
 
 ## 1.1.0
 - Gave Xi Constructs a new Secondary: Core Launch!
