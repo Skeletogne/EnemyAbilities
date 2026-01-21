@@ -262,7 +262,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
             detachEyeDef.skillName = "MegaConstructDetachEye";
             detachEyeDef.activationStateMachineName = "Body";
             detachEyeDef.activationState = ContentAddition.AddEntityState<DetachEye>(out _);
-            detachEyeDef.baseRechargeInterval = 8f;
+            detachEyeDef.baseRechargeInterval = 12f;
             detachEyeDef.cancelSprintingOnActivation = true;
             detachEyeDef.isCombatSkill = true;
             ContentAddition.AddSkillDef(detachEyeDef);
