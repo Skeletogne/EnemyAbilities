@@ -386,9 +386,11 @@ namespace EnemyAbilities.Abilities.Vulture
                 }
                 if (swoopStopwatch > nextSwingTime && swingCount < maxSwingCount)
                 {
-                    SwingEffect();
-                    swingCount++;
+
                     nextSwingTime += swingInterval;
+                    swingCount++;
+                    SwingEffect();
+
                 }
                 Vector3 velocity = new Vector3(xVelocity, yVelocity, zVelocity);
                 characterMotor.velocity = velocity;
@@ -430,7 +432,7 @@ namespace EnemyAbilities.Abilities.Vulture
         {
             Util.PlaySound("Play_acrid_m1_slash", gameObject);
             string muzzle = "";
-            int i = swingCount % 2;
+            int i = (swingCount - 1) % 2;
             if (i == (startLeftFoot ? 0 : 1))
             {
                 muzzle = "FootL";
@@ -443,12 +445,7 @@ namespace EnemyAbilities.Abilities.Vulture
             {
                 return;
             }
-            if (!slashEffect)
-            {
-                return;
-            }
             Transform transform = FindModelChild(muzzle);
-
 
             if ((bool)transform)
             {
@@ -471,6 +468,10 @@ namespace EnemyAbilities.Abilities.Vulture
                     }
                     _emh_slashEffectInstance = EffectManager.GetAndActivatePooledEffect(slashEffect, transform, inResetLocal: true);
                     slashEffectInstance = _emh_slashEffectInstance.gameObject;
+                    if (slashEffectInstance == null)
+                    {
+                        return;
+                    }
                     slashEffectInstance.transform.localScale = Vector3.one;
                 }
                 ScaleParticleSystemDuration component = slashEffectInstance.GetComponent<ScaleParticleSystemDuration>();

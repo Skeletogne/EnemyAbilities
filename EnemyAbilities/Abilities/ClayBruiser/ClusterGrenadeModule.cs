@@ -123,7 +123,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
                 return false;
             }
             bool usableNormally = base.IsReady(skillSlot);
-            if (!data.controller.validArcFound || data.controller.recentlySawTarget || data.controller.hasLoS)
+            if (!data.controller.validArcFound || !data.controller.recentlySawTarget || data.controller.hasLoS)
             {
                 return false;
             }

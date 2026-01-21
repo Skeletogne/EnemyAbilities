@@ -502,7 +502,7 @@ namespace EnemyAbilities.Abilities.IronHauler
         public override void FixedUpdate()
         {
             base.FixedUpdate();
-            if (targetBody == null || targetBody.healthComponent == null || !targetBody.healthComponent.alive)
+            if (targetBody == null || targetBody.healthComponent == null || !targetBody.healthComponent.alive || ai.customTarget == null) //just to be on the safe side
             {
                 outer.SetNextStateToMain();
                 return;
@@ -1185,6 +1185,10 @@ namespace EnemyAbilities.Abilities.IronHauler
         }
         public void TryFindCustomTarget()
         {
+            if (ai == null || ai.bodyInputBank == null || ai.body == null)
+            {
+                return;
+            }
             Ray aimRay = ai.bodyInputBank.GetAimRay();
             BullseyeSearch search = new BullseyeSearch();
             search.viewer = ai.body;
@@ -1201,6 +1205,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             search.teamMaskFilter = teamMask;
             search.RefreshCandidates();
             search.FilterOutGameObject(ai.body.gameObject);
+
             if (ai.body != null && skillLocator != null && skillLocator.utility != null && skillLocator.utility.IsReady() && skillLocator.utility.skillDef == TractorBeamModule.tractorBeamSkillDef && !hasCargo)
             {
                 IEnumerable<HurtBox> source = search.GetResults().Where(hurtBox => hurtBox.healthComponent != null && hurtBox.healthComponent.body != null && TractorBeamModule.TargetIsValidForCargoSelection(hurtBox.healthComponent.body, body));

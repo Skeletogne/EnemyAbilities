@@ -1,8 +1,13 @@
 ﻿using System;
 using System.Linq;
 using System.Reflection;
+using HG;
+using RoR2;
+using RoR2.Audio;
 using RoR2.CharacterAI;
+using RoR2.Projectile;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace EnemyAbilities
 {
@@ -124,6 +129,221 @@ namespace EnemyAbilities
         public static T AddComponentCopy<T>(this GameObject go, T toAdd) where T : Component
         {
             return go.AddComponent<T>().GetCopyOf(toAdd);
+        }
+
+        //ctrl+c, ctrl+v of ProjectileImpactExplosion with a couple extra bits and pieces. lazy, but it works
+        public class ProjectileDetonateOnImpact : ProjectileExplosion, IProjectileImpactBehavior
+        {
+            public enum TransformSpace
+            {
+                World,
+                Local,
+                Normal
+            }
+
+            private Vector3 impactNormal = Vector3.up;
+
+            public GameObject impactEffect;
+
+            public NetworkSoundEventDef lifetimeExpiredSound;
+
+            public float offsetForLifetimeExpiredSound;
+
+            public bool destroyOnEnemy = true;
+
+            public bool detonateOnEnemy;
+
+            public bool detonateOnWorld;
+
+            public bool destroyOnWorld;
+
+            public bool destroyOnDistance;
+
+            public float maxDistance;
+
+            private float maxDistanceSqr;
+
+            public bool impactOnWorld = true;
+
+            public bool timerAfterImpact;
+
+            public float lifetime;
+
+            public float lifetimeAfterImpact;
+
+            public float lifetimeRandomOffset;
+
+            private float stopwatch;
+
+            public uint minimumPhysicsStepsToKeepAliveAfterImpact;
+
+            private float stopwatchAfterImpact;
+
+            private bool hasImpact;
+
+            private bool hasPlayedLifetimeExpiredSound;
+
+            public TransformSpace transformSpace;
+
+            private Vector3 startPos;
+
+            public bool explodeOnLifeTimeExpiration;
+            public bool nullifyExplosions = false;
+
+            public override void Awake()
+            {
+                base.Awake();
+                lifetime += UnityEngine.Random.Range(0f, lifetimeRandomOffset);
+            }
+
+            protected void Start()
+            {
+                startPos = base.transform.position;
+                maxDistanceSqr = maxDistance * maxDistance;
+            }
+
+            protected void FixedUpdate()
+            {
+                stopwatch += Time.fixedDeltaTime;
+                if (!NetworkServer.active && !projectileController.isPrediction)
+                {
+                    return;
+                }
+                if (explodeOnLifeTimeExpiration && alive && stopwatch >= lifetime)
+                {
+                    explosionEffect = impactEffect ?? explosionEffect;
+                    if (!nullifyExplosions)
+                    {
+                        Detonate();
+                    }
+                }
+                if (timerAfterImpact && hasImpact)
+                {
+                    stopwatchAfterImpact += Time.fixedDeltaTime;
+                }
+                bool num = stopwatch >= lifetime;
+                bool flag = timerAfterImpact && stopwatchAfterImpact > lifetimeAfterImpact;
+                bool flag2 = (bool)projectileHealthComponent && !projectileHealthComponent.alive;
+                bool flag3 = false;
+                if (destroyOnDistance && (base.transform.position - startPos).sqrMagnitude >= maxDistanceSqr)
+                {
+                    flag3 = true;
+                }
+                if (num || flag || flag2 || flag3)
+                {
+                    alive = false;
+                }
+                if (timerAfterImpact && hasImpact && minimumPhysicsStepsToKeepAliveAfterImpact != 0)
+                {
+                    minimumPhysicsStepsToKeepAliveAfterImpact--;
+                    alive = true;
+                }
+                if (alive && !hasPlayedLifetimeExpiredSound)
+                {
+                    bool flag4 = stopwatch > lifetime - offsetForLifetimeExpiredSound;
+                    if (timerAfterImpact)
+                    {
+                        flag4 |= stopwatchAfterImpact > lifetimeAfterImpact - offsetForLifetimeExpiredSound;
+                    }
+                    if (flag4)
+                    {
+                        hasPlayedLifetimeExpiredSound = true;
+                        if (NetworkServer.active && (bool)lifetimeExpiredSound)
+                        {
+                            PointSoundManager.EmitSoundServer(lifetimeExpiredSound.index, base.transform.position);
+                        }
+                    }
+                }
+                if (!alive)
+                {
+                    explosionEffect = impactEffect ?? explosionEffect;
+                    if (!nullifyExplosions)
+                    {
+                        Detonate();
+                    }
+                }
+            }
+
+            public override Quaternion GetRandomDirectionForChild()
+            {
+                Quaternion randomChildRollPitch = GetRandomChildRollPitch();
+                return transformSpace switch
+                {
+                    TransformSpace.Local => base.transform.rotation * randomChildRollPitch,
+                    TransformSpace.Normal => Quaternion.FromToRotation(Vector3.forward, impactNormal) * randomChildRollPitch,
+                    _ => randomChildRollPitch,
+                };
+            }
+
+            public void OnProjectileImpact(ProjectileImpactInfo impactInfo)
+            {
+                if (nullifyExplosions)
+                {
+                    return;
+                }
+                if (!alive)
+                {
+                    return;
+                }
+                Collider collider = impactInfo.collider;
+                impactNormal = impactInfo.estimatedImpactNormal;
+                if (!collider)
+                {
+                    return;
+                }
+                DamageInfo damageInfo = new DamageInfo();
+                if ((bool)projectileDamage)
+                {
+                    damageInfo.damage = projectileDamage.damage;
+                    damageInfo.crit = projectileDamage.crit;
+                    damageInfo.attacker = (projectileController.owner ? projectileController.owner.gameObject : null);
+                    damageInfo.inflictor = base.gameObject;
+                    damageInfo.damageType = projectileDamage.damageType;
+                    damageInfo.inflictor = base.gameObject;
+                    damageInfo.position = impactInfo.estimatedPointOfImpact;
+                    damageInfo.force = projectileDamage.force * base.transform.forward;
+                    damageInfo.procChainMask = projectileController.procChainMask;
+                    damageInfo.procCoefficient = projectileController.procCoefficient;
+                    damageInfo.damageType = projectileDamage.damageType;
+                }
+                HurtBox component = collider.GetComponent<HurtBox>();
+                if ((bool)component)
+                {
+                    if (destroyOnEnemy)
+                    {
+                        HealthComponent healthComponent = component.healthComponent;
+                        if ((bool)healthComponent)
+                        {
+                            if (healthComponent.gameObject == projectileController.owner || ((bool)projectileHealthComponent && healthComponent == projectileHealthComponent))
+                            {
+                                return;
+                            }
+                            alive = false;
+                        }
+                    }
+                    else if (detonateOnEnemy)
+                    {
+                        HealthComponent healthComponent2 = component.healthComponent;
+                        if ((bool)healthComponent2 && healthComponent2.gameObject != projectileController.owner && healthComponent2 != projectileHealthComponent)
+                        {
+                            DetonateNoDestroy();
+                        }
+                    }
+                }
+                else if (detonateOnWorld)
+                {
+                    DetonateNoDestroy();
+                }
+                else if (destroyOnWorld)
+                {
+                    alive = false;
+                }
+                hasImpact = (bool)component || impactOnWorld;
+                if (NetworkServer.active && hasImpact)
+                {
+                    GlobalEventManager.instance.OnHitAll(damageInfo, collider.gameObject);
+                }
+            }
         }
     }
 }

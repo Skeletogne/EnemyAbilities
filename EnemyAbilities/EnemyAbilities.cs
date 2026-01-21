@@ -6,6 +6,12 @@ using BepInEx.Configuration;
 
 //the ghost of boilerplate still lingers here
 
+//update checklist
+//update version number in BOTH manifest.json AND EnemyAbilities.cs
+//add any dependencies if new ones have appeared
+//update README.md to include changelog
+//make sure git repository is up-to-date
+
 namespace EnemyAbilities
 {
 
@@ -17,7 +23,7 @@ namespace EnemyAbilities
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Skeletogne";
         public const string PluginName = "EnemyAbilities";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
 
         internal static bool RooInstalled => Chainloader.PluginInfos.ContainsKey("com.rune580.riskofoptions");
         public static EnemyAbilities Instance { get; private set; }

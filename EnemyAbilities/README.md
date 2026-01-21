@@ -38,6 +38,11 @@ Adds the following:
 
 # Changelog
 
+## 1.1.0
+- Gave Xi Constructs a new Secondary: Core Launch!
+- Clay Templars should now correctly use Grenade Barrage within 10 seconds of last seeing a target, rather than after.
+- (hopefully) solved some NREs here and there.
+
 ## 1.0.1
 - Updated manifest to include git repository link. that's it
 
