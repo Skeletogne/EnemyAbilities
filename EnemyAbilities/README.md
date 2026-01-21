@@ -26,6 +26,10 @@ Adds the following:
 - Picks up monsters with a tractor beam, before tossing them at its target.
 - Deals damage dependent on the flung monster's weight.
 
+## Xi Construct Secondary: Core Launch
+- Spins up to fire it's core at the nearest player.
+- The core embeds in the ground for a few seconds, and transfers any damage it takes to the Xi Construct.
+
 # Notes
 
 - All modules are enabled by default! Don't like a skill? You can disable it in the config!
@@ -37,6 +41,9 @@ Adds the following:
 - rune580 for RiskOfOptions
 
 # Changelog
+
+## 1.1.1
+- Local idiot forgets to update the README properly
 
 ## 1.1.0
 - Gave Xi Constructs a new Secondary: Core Launch!
