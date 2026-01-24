@@ -9,6 +9,7 @@ using RoR2.Skills;
 using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using static EnemyAbilities.PluginConfig;
 
 namespace EnemyAbilities.Abilities.Vulture
 {
@@ -40,7 +41,7 @@ namespace EnemyAbilities.Abilities.Vulture
                 var model = modelTransform.gameObject;
 
                 //not sure why it needs to be so beeg
-                CreateHitBoxAndGroup(modelTransform, "VultureMelee", new Vector3(0f, -2f, 0f), new Vector3(30f, 30f, 30f));
+                CreateHitBoxAndGroup(modelTransform, "VultureMelee", new Vector3(0f, -2f, 0f), new Vector3(30f, 30f, 30f) * (vultureSwoopHitBoxScale.Value / 100f));
             }
         }
         public void CreateSkill()
@@ -50,7 +51,7 @@ namespace EnemyAbilities.Abilities.Vulture
             swoop.skillName = "VultureSwoop";
             swoop.activationStateMachineName = "Body";
             swoop.activationState = ContentAddition.AddEntityState<SwoopWindup>(out _);
-            swoop.baseRechargeInterval = 12f;
+            swoop.baseRechargeInterval = vultureSwoopCooldown.Value;
             swoop.cancelSprintingOnActivation = true;
             swoop.isCombatSkill = true;
             ContentAddition.AddSkillDef(swoop);
@@ -208,7 +209,7 @@ namespace EnemyAbilities.Abilities.Vulture
     {
         //total time if uninterrupted is prediction + swoop * 2 + recover
         public static float predictionDuration = 0.5f;
-        private static float swoopDurationTilTarget = 1.5f;
+        private static float swoopDurationTilTarget = vultureSwoopPredictionTime.Value;
         private static float recoverDuration = 0.5f;
         private static GameObject slashEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Croco.CrocoSlash_prefab).WaitForCompletion();
         private static GameObject hitEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common_VFX.OmniImpactVFXSlash_prefab).WaitForCompletion();
@@ -241,7 +242,7 @@ namespace EnemyAbilities.Abilities.Vulture
         private bool finishedSwoop = false;
         private bool pastTarget = false;
 
-        private float damageCoefficient = 1.25f;
+        private float damageCoefficient = vultureSwoopDamageCoefficient.Value / 100f;
         private float procCoefficient = 1f;
 
         private float crashAngle = 40f;
@@ -281,7 +282,7 @@ namespace EnemyAbilities.Abilities.Vulture
             attack.hitEffectPrefab = hitEffect;
             attack.isCrit = RollCrit();
             attack.procCoefficient = procCoefficient;
-            attack.damageType = DamageType.BleedOnHit;
+            attack.damageType = vultureSwoopInflictsBleed.Value ? DamageType.BleedOnHit : DamageType.Generic;
             attack.hitBoxGroup = FindHitBoxGroup("VultureMelee");
             attack.forceVector = base.characterDirection.forward * 500f;
         }
@@ -299,7 +300,7 @@ namespace EnemyAbilities.Abilities.Vulture
                 SetStateOnHurt state = characterBody.gameObject.GetComponent<SetStateOnHurt>();
                 if (state != null)
                 {
-                    state.SetStun(1f);
+                    state.SetStun(vultureSwoopStunDurationOnImpact.Value);
                 }
             }
         }
@@ -380,7 +381,7 @@ namespace EnemyAbilities.Abilities.Vulture
                     yVelocity = -(yAcceleration * (swoopStopwatch - swoopDurationTilTarget));
                     zVelocity = zAcceleration * (swoopFullDuration - swoopStopwatch);
                 }
-                if (swoopStopwatch > firstSwingDelay && swoopStopwatch < firstSwingDelay + maxSwingCount * swingInterval)
+                if (base.isAuthority && swoopStopwatch > firstSwingDelay && swoopStopwatch < firstSwingDelay + maxSwingCount * swingInterval)
                 {
                     attack.Fire();
                 }

@@ -9,13 +9,15 @@ using RoR2.Skills;
 using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.Networking;
+using static EnemyAbilities.PluginConfig;
 
 //have mercy on your soul, for my code will not
 
 namespace EnemyAbilities.Abilities.IronHauler
 {
 
-    [EnemyAbilities.ModuleInfo("Tractor Beam & Fling", "Gives Solus Transporters a pair of new utility abilities:\n- Tractor Beam: The Transporter picks up and manoeuvres a unit that is valid for cargo.\n- Fling: Toss it's cargo at it's target. Deals impact damage based on the cargo's weight.", "Solus Transporter", true)]
+    [EnemyAbilities.ModuleInfo("Tractor Beam & Fling", "Gives Solus Transporters a pair of new utility abilities:\n- Tractor Beam: The Transporter picks up and manoeuvres a unit that is valid for cargo.\n- Fling: Toss it's cargo at it's target. Deals impact damage based on the cargo's weight.\nEnabling this will also grant all Solus Transporters a movespeed and aim-tracking buff.", "Solus Transporter", true)]
     public class TractorBeamModule : BaseModule
     {
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC3_IronHauler.IronHaulerBody_prefab).WaitForCompletion();
@@ -102,12 +104,13 @@ namespace EnemyAbilities.Abilities.IronHauler
         }
         public void CreateSkills()
         {
+
             tractorBeamSkillDef = ScriptableObject.CreateInstance<SkillDef>();
             (tractorBeamSkillDef as ScriptableObject).name = "IronHaulerBodyTractorBeam";
             tractorBeamSkillDef.skillName = "IronHaulerTractorBeam";
             tractorBeamSkillDef.activationStateMachineName = "Weapon";
             tractorBeamSkillDef.activationState = ContentAddition.AddEntityState<TractorBeam>(out _);
-            tractorBeamSkillDef.baseRechargeInterval = 10f;
+            tractorBeamSkillDef.baseRechargeInterval = transporterTractorBeamCooldown.Value;
             tractorBeamSkillDef.cancelSprintingOnActivation = true;
             tractorBeamSkillDef.isCombatSkill = true;
             tractorBeamSkillDef.beginSkillCooldownOnSkillEnd = false;
@@ -170,7 +173,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             chaseWithCargo.skillSlot = SkillSlot.Utility;
             chaseWithCargo.requiredSkill = flingSkillDef;
             chaseWithCargo.minDistance = 0f;
-            chaseWithCargo.maxDistance = 150f;
+            chaseWithCargo.maxDistance = transporterFlingMaxRange.Value;
             chaseWithCargo.moveTargetType = AISkillDriver.TargetType.Custom;
             chaseWithCargo.activationRequiresAimTargetLoS = true;
             chaseWithCargo.selectionRequiresTargetLoS = false;
@@ -258,7 +261,11 @@ namespace EnemyAbilities.Abilities.IronHauler
                 return false;
             }
             //filters out bosses
-            if (targetBody.isChampion)
+            if (targetBody.isElite && canFlingElites.Value == false)
+            {
+                return false;
+            }
+            if (targetBody.isChampion && canFlingBosses.Value == false)
             {
                 return false;
             }
@@ -290,7 +297,14 @@ namespace EnemyAbilities.Abilities.IronHauler
             //filters out enemies without setStateOnHurt. covers lunar wisps. fuck those guys.
             if (targetBody.GetComponent<SetStateOnHurt>() == null)
             {
-                return false;
+                if (targetBody.isChampion == false)
+                {
+                    return false;
+                }
+                if (canFlingBosses.Value == false)
+                {
+                    return false;
+                }
             }
             return true;
         }
@@ -371,11 +385,11 @@ namespace EnemyAbilities.Abilities.IronHauler
         private IronHaulerCargoController cargoController;
         private CharacterBody cargoBody;
 
-        private static float baseDamageCoefficient = 2f;
+        private static float baseDamageCoefficient = transporterFlingBaseDamageCoefficient.Value / 100f;
         private static float baseForce = 1500f;
         private static Vector3 bonusForce = new Vector3(0f, 1500f, 0f);
         private static float procCoefficient = 1f;
-        private static float baseRadius = 12f;
+        private static float baseRadius = transporterFlingRadius.Value;
 
         private static float lockOnDuration = 1f;
         private float lockOnTimer = 0f;
@@ -577,7 +591,7 @@ namespace EnemyAbilities.Abilities.IronHauler
                 BlastAttack blastAttack = new BlastAttack();
                 blastAttack.attacker = characterBody.gameObject;
                 blastAttack.attackerFiltering = AttackerFiltering.NeverHitSelf;
-                blastAttack.baseDamage = damageStat * (baseDamageCoefficient + cargoMass / 200f);
+                blastAttack.baseDamage = damageStat * (baseDamageCoefficient + ((cargoMass / 100f) * transporterFlingDamageCoefficientPerUnitMass.Value));
                 blastAttack.baseForce = baseForce + cargoMass * 3f;
                 blastAttack.bonusForce = bonusForce + new Vector3(0f, cargoMass * 1.5f, 0f);
                 blastAttack.crit = RollCrit();
@@ -614,7 +628,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             Vector3 gravity = Physics.gravity; 
             Vector3 initialPosition = cargoBody.transform.position;
             Vector3 finalPosition = ai.customTarget.characterBody.footPosition;
-            float time = 3f;
+            float time = transporterFlingTimeToTarget.Value;
 
             Vector3 vector1 = (finalPosition - initialPosition) / time;
             Vector3 vector2 = 0.5f * gravity * time;
@@ -899,7 +913,10 @@ namespace EnemyAbilities.Abilities.IronHauler
                 firedBlast = true;
                 EffectManager.SpawnEffect(explosionPrefab, new EffectData { origin = body.corePosition, scale = blastAttack.radius }, true);
                 blastAttack.position = body.corePosition;
-                blastAttack.Fire();
+                if (NetworkServer.active)
+                {
+                    blastAttack.Fire();
+                }
                 DamageInfo damageInfo = new DamageInfo
                 {
                     attacker = body.gameObject,

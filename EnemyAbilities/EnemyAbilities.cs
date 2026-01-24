@@ -12,6 +12,11 @@ using BepInEx.Configuration;
 //update README.md to include changelog
 //make sure git repository is up-to-date
 
+//todo
+
+//could probably put "CreateSkill" into BaseModule to make setting up future skills a bit easier?
+//grovetender ability???
+
 namespace EnemyAbilities
 {
 
@@ -23,7 +28,7 @@ namespace EnemyAbilities
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Skeletogne";
         public const string PluginName = "EnemyAbilities";
-        public const string PluginVersion = "1.1.1";
+        public const string PluginVersion = "1.2.0";
 
         internal static bool RooInstalled => Chainloader.PluginInfos.ContainsKey("com.rune580.riskofoptions");
         public static EnemyAbilities Instance { get; private set; }

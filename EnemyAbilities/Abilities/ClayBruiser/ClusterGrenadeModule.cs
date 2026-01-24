@@ -8,6 +8,7 @@ using UnityEngine.AddressableAssets;
 using RoR2.CharacterAI;
 using JetBrains.Annotations;
 using RoR2.Projectile;
+using static EnemyAbilities.PluginConfig;
 
 namespace EnemyAbilities.Abilities.ClayBruiser
 {
@@ -59,7 +60,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
 
             controller.ghostPrefab = ghostPrefab;
             ProjectileImpactExplosion impactExplosion = projectilePrefab.GetComponent<ProjectileImpactExplosion>();
-            impactExplosion.blastRadius = 6f;
+            impactExplosion.blastRadius = templarGrenadeExplosionRadius.Value;
             impactExplosion.impactEffect = explosionPrefab;
         }
         private void CreateSkill()
@@ -69,7 +70,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
             clusterGrenade.skillName = "ClayBruiserClusterGrenade";
             clusterGrenade.activationStateMachineName = "Weapon";
             clusterGrenade.activationState = ContentAddition.AddEntityState<FireClusterGrenades>(out _);
-            clusterGrenade.baseRechargeInterval = 10f;
+            clusterGrenade.baseRechargeInterval = templarGrenadeCooldown.Value;
             clusterGrenade.cancelSprintingOnActivation = true;
             clusterGrenade.isCombatSkill = true;
             ContentAddition.AddSkillDef(clusterGrenade);
@@ -135,7 +136,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
 
         private float duration;
         private ClayBruiserUtilityController controller;
-        private int grenadeCount = 5;
+        private int grenadeCount = (int)templarGrenadeCount.Value;
         private int grenadeIndex = 0;
         private float grenadeFireTimer = 0f;
         private float grenadeFireInterval;
@@ -171,7 +172,10 @@ namespace EnemyAbilities.Abilities.ClayBruiser
                 {
                     randomDeviation = UnityEngine.Random.insideUnitSphere * 0.025f;
                 }
-                ProjectileManager.instance.FireProjectile(ClusterGrenadeModule.projectilePrefab, characterBody.aimOrigin, Util.QuaternionSafeLookRotation(direction + randomDeviation), characterBody.gameObject, damageStat * 1f, 1000f, RollCrit(), DamageColorIndex.Default, null, speedOverride, DamageType.ClayGoo);
+                if (base.isAuthority)
+                {
+                    ProjectileManager.instance.FireProjectile(ClusterGrenadeModule.projectilePrefab, characterBody.aimOrigin, Util.QuaternionSafeLookRotation(direction + randomDeviation), characterBody.gameObject, damageStat * (templarGrenadeDamageCoefficient.Value / 100f), 1000f, RollCrit(), DamageColorIndex.Default, null, speedOverride, DamageType.ClayGoo);
+                }
                 grenadeIndex++;
             }
             if (base.fixedAge > duration && grenadeIndex == grenadeCount)

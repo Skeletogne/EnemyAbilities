@@ -24,10 +24,11 @@ using UnityEngine.Rendering;
 using static EnemyAbilities.Utils;
 using static RoR2.CharacterAI.BaseAI;
 using static UnityEngine.UI.GridLayoutGroup;
+using static EnemyAbilities.PluginConfig;
 
 namespace EnemyAbilities.Abilities.XiConstruct
 {
-    [EnemyAbilities.ModuleInfo("Detach Eye", "Gives Xi Constructs a new Secondary:\n-Core Launch: The Xi Construct spins up to launch it's core at a player, then retracts it after a short delay. Damaging the core returns the damage to the Xi Construct.", "Xi Construct", true)]
+    [EnemyAbilities.ModuleInfo("Core Launch", "Gives Xi Constructs a new Secondary:\n-Core Launch: The Xi Construct spins up to launch it's core at a player, then retracts it after a short delay. Damaging the core returns the damage to the Xi Construct.", "Xi Construct", true)]
     public class DetachEyeModule : BaseModule
     {
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_MajorAndMinorConstruct.MegaConstructBody_prefab).WaitForCompletion();
@@ -188,7 +189,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
                     if (detonate != null)
                     {
                         detonate.impactEffect = impactEffect;
-                        detonate.blastRadius = 12f;
+                        detonate.blastRadius = xiCoreExplosionRadius.Value;
                         detonate.blastDamageCoefficient = 1f;
                         detonate.falloffModel = BlastAttack.FalloffModel.SweetSpot;
                         detonate.bonusBlastForce = new Vector3(0f, 2000f, 0f);
@@ -262,7 +263,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
             detachEyeDef.skillName = "MegaConstructDetachEye";
             detachEyeDef.activationStateMachineName = "Body";
             detachEyeDef.activationState = ContentAddition.AddEntityState<DetachEye>(out _);
-            detachEyeDef.baseRechargeInterval = 12f;
+            detachEyeDef.baseRechargeInterval = xiCoreCooldown.Value;   
             detachEyeDef.cancelSprintingOnActivation = true;
             detachEyeDef.isCombatSkill = true;
             ContentAddition.AddSkillDef(detachEyeDef);
@@ -365,7 +366,6 @@ namespace EnemyAbilities.Abilities.XiConstruct
     {
         private float duration;
         private static float baseDuration = 1f;
-        private static float damageCoefficient = 2.4f;
         private static float speedOverride = 100f;
         private static float force = 2000f;
         private GameObject projectilePrefab = DetachEyeModule.vagrantProjectile;
@@ -377,10 +377,10 @@ namespace EnemyAbilities.Abilities.XiConstruct
             Recall
         }
 
-        private static float baseWindupDuration = 0.75f;
+        private static float baseWindupDuration = xiCoreWindupDuration.Value;
         private float windupDuration;
         private float windupTimer;
-        private static float baseWaitDuration = 3.5f;
+        private static float baseWaitDuration = xiCoreWaitDuration.Value;
         private float waitDuration;
         private float waitTimer;
         private AbilityState abilityState;
@@ -526,9 +526,12 @@ namespace EnemyAbilities.Abilities.XiConstruct
         }
         public void Fire()
         {
-            Ray aimRay = GetAimRay();
-            Quaternion modelRotation = modelLocator.modelTransform.rotation;
-            ProjectileManager.instance.FireProjectile(projectilePrefab, aimRay.origin, modelRotation, characterBody.gameObject, damageCoefficient * damageStat, force, RollCrit(), DamageColorIndex.Default, null, speedOverride);
+            if (base.isAuthority)
+            {
+                Ray aimRay = GetAimRay();
+                Quaternion modelRotation = modelLocator.modelTransform.rotation;
+                ProjectileManager.instance.FireProjectile(projectilePrefab, aimRay.origin, modelRotation, characterBody.gameObject, (xiCoreDamageCoefficient.Value / 100f) * damageStat, force, RollCrit(), DamageColorIndex.Default, null, speedOverride);
+            }
             ToggleEyeVisual(false);
             ToggleHurtBoxes(false);
         }

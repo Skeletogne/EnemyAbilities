@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
 using EntityStates;
+using static EnemyAbilities.PluginConfig;
 using R2API;
 
 namespace EnemyAbilities.Abilities.FlyingVermin
@@ -30,7 +31,7 @@ namespace EnemyAbilities.Abilities.FlyingVermin
             thwompStomp.skillName = "FlyingVerminThwompStomp";
             thwompStomp.activationStateMachineName = "Body";
             thwompStomp.activationState = ContentAddition.AddEntityState<ThwompStomp>(out _);
-            thwompStomp.baseRechargeInterval = 8f;
+            thwompStomp.baseRechargeInterval = pestThwompCooldown.Value;
             thwompStomp.cancelSprintingOnActivation = true;
             thwompStomp.isCombatSkill = true;
             ContentAddition.AddSkillDef(thwompStomp);
@@ -96,17 +97,17 @@ namespace EnemyAbilities.Abilities.FlyingVermin
     public class ThwompStomp : BaseSkillState
     {
         private float warningDuration;
-        private static float baseWarningDuration = 0.85f;
+        private static float baseWarningDuration = pestThwompWarningDuration.Value;
         private bool thwompingIt;
         private bool hitGround;
-        private static float baseRecoveryDuration = 1.25f;
+        private static float baseRecoveryDuration = pestThwompRecoveryDuration.Value;
         private float recoveryDuration;
         private float recoveryStopwatch = 0f;
-        private static float damageCoefficient = 2.5f;
+        private static float damageCoefficient = pestThwompDamageCoefficient.Value / 100f;
         private static float force = 1000f;
         private static Vector3 bonusForce = new Vector3(0f, 1000f, 0f);
         private static float procCoefficient = 1f;
-        private static float radius = 5f;
+        private static float radius = pestThwompRadius.Value;
         private ThwompController controller;
         private static GameObject blastEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Croco.CrocoLeapExplosion_prefab).WaitForCompletion();
         private static GameObject indicatorPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common.TeamAreaIndicator__GroundOnly_prefab).WaitForCompletion();
@@ -199,22 +200,25 @@ namespace EnemyAbilities.Abilities.FlyingVermin
                 TryDestroyIndicator();
                 hitGround = true;
                 characterMotor.velocity = Vector3.zero;
-                BlastAttack blastAttack = new BlastAttack();
-                blastAttack.attacker = characterBody.gameObject;
-                blastAttack.inflictor = characterBody.gameObject;
-                blastAttack.position = characterBody.corePosition;
-                blastAttack.baseForce = force;
-                blastAttack.bonusForce = bonusForce;
-                blastAttack.radius = radius;
-                blastAttack.attackerFiltering = AttackerFiltering.NeverHitSelf;
-                blastAttack.procCoefficient = procCoefficient;
-                blastAttack.baseDamage = damageCoefficient * damageStat;
-                blastAttack.crit = RollCrit();
-                blastAttack.damageColorIndex = DamageColorIndex.Default;
-                blastAttack.damageType = DamageType.Generic;
-                blastAttack.teamIndex = teamComponent.teamIndex;
-                blastAttack.falloffModel = BlastAttack.FalloffModel.SweetSpot;
-                blastAttack.Fire();
+                if (base.isAuthority)
+                {
+                    BlastAttack blastAttack = new BlastAttack();
+                    blastAttack.attacker = characterBody.gameObject;
+                    blastAttack.inflictor = characterBody.gameObject;
+                    blastAttack.position = characterBody.corePosition;
+                    blastAttack.baseForce = force;
+                    blastAttack.bonusForce = bonusForce;
+                    blastAttack.radius = radius;
+                    blastAttack.attackerFiltering = AttackerFiltering.NeverHitSelf;
+                    blastAttack.procCoefficient = procCoefficient;
+                    blastAttack.baseDamage = damageCoefficient * damageStat;
+                    blastAttack.crit = RollCrit();
+                    blastAttack.damageColorIndex = DamageColorIndex.Default;
+                    blastAttack.damageType = DamageType.Generic;
+                    blastAttack.teamIndex = teamComponent.teamIndex;
+                    blastAttack.falloffModel = BlastAttack.FalloffModel.SweetSpot;
+                    blastAttack.Fire();
+                }
                 controller.savedBaseJumpCount = characterBody.baseJumpCount;
                 controller.savedMaxJumpCount = characterBody.maxJumpCount;
                 characterBody.baseJumpCount = 0;
@@ -241,9 +245,9 @@ namespace EnemyAbilities.Abilities.FlyingVermin
         private float maximumDistance = 40f;
         public bool foundTarget = false;
         //slightly bigger than actual ability radius for baiting
-        private float radius = 9f;
+        private float radius = 3f + pestThwompRadius.Value;
         private float gravityTimer;
-        private float gravityDuration = 3f;
+        private float gravityDuration = pestThwompGroundedDuration.Value;
         public int savedBaseJumpCount;
         public int savedMaxJumpCount;
 

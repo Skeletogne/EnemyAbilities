@@ -7,6 +7,7 @@ using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
 using RoR2.CharacterAI;
 using EntityStates;
 using System.Linq;
+using static EnemyAbilities.PluginConfig;
 
 namespace EnemyAbilities.Abilities.SolusProspector
 {
@@ -32,7 +33,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
             drillBurrowSkillDef.skillName = "WorkerUnitDrillBurrow";
             drillBurrowSkillDef.activationStateMachineName = "Weapon";
             drillBurrowSkillDef.activationState = ContentAddition.AddEntityState<DrillBurrow>(out _);
-            drillBurrowSkillDef.baseRechargeInterval = 15f;
+            drillBurrowSkillDef.baseRechargeInterval = prospectorBurrowCooldown.Value;
             drillBurrowSkillDef.cancelSprintingOnActivation = true;
             drillBurrowSkillDef.isCombatSkill = true;
             ContentAddition.AddSkillDef(drillBurrowSkillDef);
@@ -67,15 +68,15 @@ namespace EnemyAbilities.Abilities.SolusProspector
     public class DrillBurrow : BaseSkillState
     {
 
-        public static float baseWindupDuration = 1f;
-        public static float baseBurrowDuration = 1f;
-        public static float baseTelegraphDuration = 1.5f;
+        public static float baseWindupDuration = prospectorBurrowEntryDuration.Value;
+        public static float baseBurrowDuration = prospectorBurrowWaitDuration.Value;
+        public static float baseTelegraphDuration = prospectorBurrowTelegraphDuration.Value;
         public static float baseAttackDuration = 1f;
-        public static float blastRadius = 6f;
+        public static float blastRadius = prospectorBurrowRadius.Value;
         public static float force = 1500f;
         public static Vector3 bonusForce = new Vector3(0f, 2500f, 0f);
-        public static float damageCoefficient = 3f;
-        public static float exitSpeedMultiplier = 2.5f;
+        public static float damageCoefficient = prospectorBurrowDamageCoefficient.Value / 100f;
+        public static float exitSpeedMultiplier = prospectorBurrowBaseVelocity.Value / 100f;
         private static GameObject indicatorPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common.TeamAreaIndicator__GroundOnly_prefab).WaitForCompletion();
         private static GameObject explosionPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_BeetleGuard.BeetleGuardGroundSlam_prefab).WaitForCompletion();
         private static GameObject burrowPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_MiniMushroom.MiniMushroomPlantEffect_prefab).WaitForCompletion();
@@ -92,7 +93,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
         private Animator animator;
         private bool reachedApex;
         private float burrowEffectTimer = 0f;
-        private float burrowEffectInterval = 0.1f;
+        private float burrowEffectInterval = 0.2f;
         private enum DrillBurrowState
         {
             None,

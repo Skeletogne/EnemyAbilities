@@ -1,11 +1,19 @@
 # Enemy Abilities
 
+Now with Networking AND Configuration Options!
 Adds the following:
 
 ## Alloy Vulture Secondary: Swoop
 
 - Swoops towards the target, slashing with it's talons.
+- Inflicts Bleed
 - Will stun itself if it flies into a wall!
+
+## Bighorn Bison Secondary: Unearth Boulder (new!)
+
+- Unearths a boulder in front of it.
+- If the boulder is hit by a Bison's melee attack it is launched towards nearby targets!
+- Can be launched by any attack that deals more than 1000% damage! (watch out for Jellyfish!)
 
 ## Blind Pest Secondary: Thwomp Stomp
 
@@ -42,6 +50,12 @@ Adds the following:
 
 # Changelog
 
+## 1.2.0
+- Gave Bighorn Bison a new Secondary: Unearth Boulder!
+- Networked the mod's various projectiles and attacks.
+- Added a boatload of Configuration options. (Some of them are even untested!)
+- Added R2API DamageType dependency.
+
 ## 1.1.1
 - Local idiot forgets to update the README properly
 - Got rid of the accursed extra apostrophe in the manifest description
@@ -54,7 +68,8 @@ Adds the following:
 ## 1.0.1
 - Updated manifest to include git repository link. that's it
 
-
+## 1.0.0
+- Exists
 
 
 
