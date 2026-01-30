@@ -25,6 +25,9 @@ using BepInEx.Configuration;
 namespace EnemyAbilities.Abilities.Bison
 {
     [EnemyAbilities.ModuleInfo("Unearth Boulder", "Gives Bison a new Secondary\n- Unearth Boulder: The Bison Unearths a large boulders nearby. These do nothing until hit with a melee attack, at which point they launch towards a nearby target, dealing high damage on impact. Activating this module causes Charge to activate from a longer range, and changes the max health damage needed to stun a Bison from 15% -> 30% to match Beetle Guards and Stone Golems.", "Bighorn Bison", true)]
+
+    //Bison rocks can be a little buggy, sometimes rolling on the floor. unsure why this is the case at the moment
+
     public class RockModule : BaseModule
     {
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Bison.BisonBody_prefab).WaitForCompletion();
@@ -119,6 +122,7 @@ namespace EnemyAbilities.Abilities.Bison
         public void ModifyProjectilePrefab()
         {
             ProjectileController controller = rockProjectile.GetComponent<ProjectileController>();
+            rockProjectile.layer = LayerIndex.projectileWorldOnly.intVal;
             controller.flightSoundLoop = null;
             controller.ghostPrefab = rockGhost;
             rockGhost.GetComponent<Transform>().localScale = Vector3.one * 0.75f;
@@ -173,6 +177,8 @@ namespace EnemyAbilities.Abilities.Bison
             characterBody.baseVisionDistance = Mathf.Infinity;
             characterBody.sprintingSpeedMultiplier = 1.45f;
             characterBody.hullClassification = HullClassification.Human;
+            characterBody.baseMaxHealth = 1000000f;
+            characterBody.levelMaxHealth = 300000f;
             characterBody.SetSpreadBloom(0f);
 
             HealthComponent healthComponent = rockProjectile.AddComponent<HealthComponent>();
@@ -481,6 +487,7 @@ namespace EnemyAbilities.Abilities.Bison
                     }
                 }
                 rockState = RockState.Embedded;
+                return;
             }
             if (impactInfo.collider != null)
             {

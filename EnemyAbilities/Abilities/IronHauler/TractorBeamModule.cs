@@ -1187,7 +1187,7 @@ namespace EnemyAbilities.Abilities.IronHauler
         }
         public void DetachCargo()
         {
-            if (!cargoController.readyToFling)
+            if (cargoController != null && !cargoController.readyToFling)
             {
                 cargoController.restore = true;
             }

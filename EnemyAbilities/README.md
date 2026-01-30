@@ -1,7 +1,7 @@
 # Enemy Abilities
 
-Now with Networking AND Configuration Options!
-Adds the following:
+This is a difficulty mod that increases the challenge of defeating the game's various enemies by giving them new skills!
+Most abilities increase the difficulty of fighting a given enemy, however some abilities will open up new counter strategies! 
 
 ## Alloy Vulture Secondary: Swoop
 
@@ -9,7 +9,7 @@ Adds the following:
 - Inflicts Bleed
 - Will stun itself if it flies into a wall!
 
-## Bighorn Bison Secondary: Unearth Boulder (new!)
+## Bighorn Bison Secondary: Unearth Boulder
 
 - Unearths a boulder in front of it.
 - If the boulder is hit by a Bison's melee attack it is launched towards nearby targets!
@@ -24,6 +24,13 @@ Adds the following:
 
 - Launches a volley of five tar-filled grenades over cover to flush it's target out.
 - Only usable if it doesn't have line of sight, and can draw an arc to the target.
+
+## Grovetender Special: Mass Resurrect (new!)
+
+- Grovetenders passively collect gravestones when nearby enemies die.
+- They then launch collected gravestones at the player, which explode into the ghost of the killed enemy.
+- Ghosts provide armour to the grovetender.
+- Only usable below 50% HP.
 
 ## Solus Prospector Secondary: Drill Burrow
 
@@ -49,6 +56,11 @@ Adds the following:
 - rune580 for RiskOfOptions
 
 # Changelog
+
+## 1.3.0
+- Gave Grovetenders a new Special: Mass Resurrect!
+- Added some new visuals for Solus Prospectors' Drill Burrow
+- Minor touchups to the Bison Rock ability but it's still kinda buggy.
 
 ## 1.2.0
 - Gave Bighorn Bison a new Secondary: Unearth Boulder!

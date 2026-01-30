@@ -73,6 +73,18 @@ namespace EnemyAbilities
         public static ConfigEntry<float> prospectorBurrowBaseVelocity { get; set; }
         public static ConfigEntry<float> prospectorBurrowCooldown { get; set; }
 
+
+        public static ConfigEntry<bool> grovetenderResurrectWispsOnly { get; set; }
+        public static ConfigEntry<float> grovetenderResurrectMaxGhosts { get; set; }
+        public static ConfigEntry<float> grovetenderResurrectMaxGravestones { get; set; }
+        public static ConfigEntry<float> grovetenderResurrectCooldown { get; set; }
+        public static ConfigEntry<float> grovetenderResurrectGravestoneFuse { get; set; }
+        public static ConfigEntry<float> grovetenderResurrectGravestoneRadius { get; set; }
+        public static ConfigEntry<float> grovetenderResurrectGravestoneDamage { get; set; }
+        public static ConfigEntry<float> grovetenderResurrectGhostLifetime { get; set; }
+        public static ConfigEntry<float> grovetenderResurrectHealthThreshold { get; set; }
+        public static ConfigEntry<float> grovetenderResurrectArmorPerGhost { get; set; }
+
         public enum FormatType
         {
             None = 0,
@@ -135,8 +147,8 @@ namespace EnemyAbilities
             transporterFlingBaseDamageCoefficient = cfg.BindOptionSteppedSlider("Solus Transporter", "Fling Damage Coefficient", 300f, 5f, "The base explosion damage of a flung enemy hitting the ground.", 100f, 600f, true, FormatType.Percentage);
             transporterFlingDamageCoefficientPerUnitMass = cfg.BindOptionSteppedSlider("Solus Transporter", "Fling Damage Coefficient per Unit Mass", 0.5f, 0.01f, "The value that is multiplied by the weight of the unit, before being added to the percentage damage coefficient. (e.g. a gup weighs 500, so a base damage coefficient of 200% with a damage per unit mass of 0.5 would yield 200% + 0.5 * 500% = 450%.", 0f, 1f, true, FormatType.Percentage);
             canFlingElites = cfg.BindOption("Solus Transporter", "Can Fling Elites", true, "Allows Solus Transporters to pick up and fling elite enemies", true);
-            canFlingBosses = cfg.BindOption("Solus Transporter", "Can Fling Bosses", false, "Allows Solus Transporters to pick up and fling bosses. UNTESTED - ENABLED AT YOUR OWN PERIL!", true);
-            transporterTractorBeamCooldown = cfg.BindOptionSteppedSlider("Solus Transporter", "Tractor Beam Cooldown", 12f, 0.1f, "The Cooldown for the Tractor Beam (which starts after an enemy is flung)", 5f, 30f, true, FormatType.Speed);
+            canFlingBosses = cfg.BindOption("Solus Transporter", "Can Fling Bosses", false, "Allows Solus Transporters to pick up and fling bosses. UNTESTED - ENABLE AT YOUR OWN PERIL!", true);
+            transporterTractorBeamCooldown = cfg.BindOptionSteppedSlider("Solus Transporter", "Tractor Beam Cooldown", 12f, 0.1f, "The Cooldown for the Tractor Beam (which starts after an enemy is flung)", 5f, 30f, true, FormatType.Time);
 
             xiCoreDamageCoefficient = cfg.BindOptionSteppedSlider("Xi Construct", "Core Damage Coefficient", 250f, 5f, "The damage coefficient of the core attack", 100f, 500f, true, FormatType.Percentage);
             xiCoreExplosionRadius = cfg.BindOptionSteppedSlider("Xi Construct", "Core Explosion Radius", 10f, 0.1f, "The damage radius of the core attack", 6f, 20f, true, FormatType.Distance);
@@ -160,6 +172,16 @@ namespace EnemyAbilities
             prospectorBurrowBaseVelocity = cfg.BindOptionSteppedSlider("Solus Prospector", "Burrow Upwards Velocity Modifier", 250f, 10f, "The speed multiplier at which the Prospector is ejected from the ground", 100f, 500f, true, FormatType.Percentage);
             prospectorBurrowCooldown = cfg.BindOptionSteppedSlider("Solus Prospector", "Burrow Cooldown", 15f, 0.1f, "The cooldown of the burrow", 8f, 30f, true, FormatType.Time);
 
+            grovetenderResurrectWispsOnly = cfg.BindOption("Grovetender", "Resurrect Spawns Wisps Only", false, "Enemies killed are resurrected as wisps when the Gravestones shatter.", true);
+            grovetenderResurrectGhostLifetime = cfg.BindOptionSteppedSlider("Grovetender", "Resurrect Ghost Lifetime", 30f, 1f, "The duration over which resurrected ghosts will decay from full health to zero.", 10f, 120f, true, FormatType.Time);
+            grovetenderResurrectGravestoneDamage = cfg.BindOptionSteppedSlider("Grovetender", "Resurrect Gravestone Damage", 200f, 5f, "The damage coefficient of the Gravestone explosion.", 100f, 400f, true, FormatType.Percentage);
+            grovetenderResurrectGravestoneFuse = cfg.BindOptionSteppedSlider("Grovetender", "Resurrect Gravestone Fuse Duration", 1.25f, 0.01f, "The time between a gravestone embedding and exploding.", 0.5f, 3f, true, FormatType.Time);
+            grovetenderResurrectGravestoneRadius = cfg.BindOptionSteppedSlider("Grovetender", "Resurrect Gravestone Explosion Radius", 9f, 0.1f, "The radius of the gravestone explosion", 5f, 16f, true, FormatType.Distance);
+            grovetenderResurrectHealthThreshold = cfg.BindOptionSteppedSlider("Grovetender", "Resurrect Health Threshold", 50f, 1f, "The health threshold that the Grovetender must be under to use Mass Resurrect", 25f, 100f, true, FormatType.Percentage);
+            grovetenderResurrectMaxGhosts = cfg.BindOptionSteppedSlider("Grovetender", "Resurrect Max Ghosts", 8f, 1f, "The maximum amount of ghosts a Grovetender can have active at once. Gravestones beyond this limit will fire and explode, but not spawn new enemies.", 2f, 20f, true, FormatType.None);
+            grovetenderResurrectMaxGravestones = cfg.BindOptionSteppedSlider("Grovetender", "Resurrect Max Gravestones", 8f, 1f, "The maximum amount of gravestones a Grovetender can have active at once. Enemies that die beyond this limit will not create gravestones.", 2f, 20f, true, FormatType.None);
+            grovetenderResurrectCooldown = cfg.BindOptionSteppedSlider("Grovetender", "Resurrect Cooldown", 60f, 0.1f, "The cooldown of Mass Resurrect", 30f, 120f, true, FormatType.Time);
+            grovetenderResurrectArmorPerGhost = cfg.BindOptionSteppedSlider("Grovetender", "Resurrect Armor Per Ghost", 30f, 1f, "The amount of armour that the Grovetender gains per active ghost.", 5f, 100f, true, FormatType.None);
         }
         //absolutely ancient plugin config, .score gave this to me in like 2024 
         public static void InitRoO()

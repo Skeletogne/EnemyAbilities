@@ -94,6 +94,8 @@ namespace EnemyAbilities.Abilities.SolusProspector
         private bool reachedApex;
         private float burrowEffectTimer = 0f;
         private float burrowEffectInterval = 0.2f;
+        private Vector3 startPos;
+        private HurtBox target;
         private enum DrillBurrowState
         {
             None,
@@ -116,7 +118,26 @@ namespace EnemyAbilities.Abilities.SolusProspector
             attackDuration = baseAttackDuration / attackSpeedStat;
             totalDuration = windupDuration + burrowDuration + telegraphDuration + attackDuration;
             currentState = DrillBurrowState.Windup;
-            //select target immediately
+
+            startPos = characterBody.transform.position;
+            BullseyeSearch bullseyeSearch = new BullseyeSearch();
+            bullseyeSearch.viewer = characterBody;
+            bullseyeSearch.teamMaskFilter = TeamMask.allButNeutral;
+            bullseyeSearch.teamMaskFilter.RemoveTeam(characterBody.teamComponent.teamIndex);
+            bullseyeSearch.sortMode = BullseyeSearch.SortMode.DistanceAndAngle;
+            bullseyeSearch.minDistanceFilter = 0f;
+            bullseyeSearch.maxDistanceFilter = 60f;
+            bullseyeSearch.searchOrigin = base.inputBank.aimOrigin;
+            bullseyeSearch.searchDirection = base.inputBank.aimDirection;
+            bullseyeSearch.maxAngleFilter = 360f;
+            bullseyeSearch.filterByLoS = false;
+            bullseyeSearch.RefreshCandidates();
+            HurtBox hurtBox = bullseyeSearch.GetResults().FirstOrDefault();
+            if (hurtBox != null)
+            {
+                target = hurtBox;
+            }
+
         }
         public override void OnExit()
         {
@@ -130,15 +151,35 @@ namespace EnemyAbilities.Abilities.SolusProspector
         public void SpawnDirtEffect()
         {
             EffectData effectData = new EffectData();
+            Vector3 randomOffset = UnityEngine.Random.insideUnitSphere * 1f;
             if (currentState == DrillBurrowState.Windup)
             {
-                effectData._origin = characterBody.footPosition + UnityEngine.Random.insideUnitSphere * 3f;
+                effectData._origin = characterBody.footPosition + randomOffset;
             }
-            else
+            else if (currentState == DrillBurrowState.Telegraphing)
             {
-                effectData._origin = targetPos;
+                effectData._origin = targetPos + randomOffset;
             }
-            effectData.scale = 2f;
+            else if (currentState == DrillBurrowState.Burrowed)
+            {
+                Vector3 targetPosition = target.healthComponent.body.transform.position;
+                Vector3 startPosition = startPos;
+                if (targetPosition.y > startPos.y)
+                {
+                    startPosition.y = targetPosition.y;
+                }
+                else
+                {
+                    targetPosition.y = startPosition.y;
+                }
+                Vector3 raycastStart = Vector3.Lerp(startPosition, targetPosition, Mathf.Clamp01(stopwatch - windupDuration / burrowDuration));
+                bool success = Physics.Raycast(raycastStart, Vector3.down, out RaycastHit hitInfo, 1000f, LayerIndex.world.mask);
+                if (success)
+                {
+                    effectData._origin = hitInfo.point + randomOffset;
+                }
+            }
+            effectData.scale = currentState == DrillBurrowState.Burrowed ? 1f : 2f;
             EffectManager.SpawnEffect(burrowPrefab, effectData, transmit: true);
         }
         public override void FixedUpdate()
@@ -153,11 +194,14 @@ namespace EnemyAbilities.Abilities.SolusProspector
             {
                 Burrow();
                 currentState = DrillBurrowState.Burrowed;
+                burrowEffectTimer = 0f;
+                burrowEffectInterval = 0.05f;
             }
             if (stopwatch > windupDuration + burrowDuration && currentState == DrillBurrowState.Burrowed)
             {
                 Telegraph();
                 burrowEffectTimer = 0f;
+                burrowEffectInterval = 0.2f;
                 currentState = DrillBurrowState.Telegraphing;
             }
             if (stopwatch > windupDuration + burrowDuration + telegraphDuration && currentState == DrillBurrowState.Telegraphing)
@@ -181,7 +225,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
             {
                 outer.SetNextStateToMain();
             }
-            if (currentState == DrillBurrowState.Windup || currentState == DrillBurrowState.Telegraphing)
+            if (currentState == DrillBurrowState.Windup || currentState == DrillBurrowState.Telegraphing || currentState == DrillBurrowState.Burrowed)
             {
                 burrowEffectTimer -= Time.fixedDeltaTime;
                 if (burrowEffectTimer < 0f)
@@ -216,26 +260,12 @@ namespace EnemyAbilities.Abilities.SolusProspector
         }
         public void Telegraph()
         {
-
-            BullseyeSearch bullseyeSearch = new BullseyeSearch();
             targetPos = base.transform.position;
-            bullseyeSearch.viewer = characterBody;
-            bullseyeSearch.teamMaskFilter = TeamMask.allButNeutral;
-            bullseyeSearch.teamMaskFilter.RemoveTeam(characterBody.teamComponent.teamIndex);
-            bullseyeSearch.sortMode = BullseyeSearch.SortMode.DistanceAndAngle;
-            bullseyeSearch.minDistanceFilter = 0f;
-            bullseyeSearch.maxDistanceFilter = 60f;
-            bullseyeSearch.searchOrigin = base.inputBank.aimOrigin;
-            bullseyeSearch.searchDirection = base.inputBank.aimDirection;
-            bullseyeSearch.maxAngleFilter = 360f;
-            bullseyeSearch.filterByLoS = false;
-            bullseyeSearch.RefreshCandidates();
-            HurtBox hurtBox = bullseyeSearch.GetResults().FirstOrDefault();
-            if (hurtBox != null)
+            if (target != null)
             {
-                targetPos = hurtBox.healthComponent.body.footPosition;
+                targetPos = target.healthComponent.body.footPosition;
                 //probably need a better sound cue than this?
-                Util.PlaySound("Play_GildedElite_Pillar_Spawn", hurtBox.healthComponent.body.gameObject);
+                Util.PlaySound("Play_GildedElite_Pillar_Spawn", target.healthComponent.body.gameObject);
             }
             if (Physics.Raycast(targetPos, Vector3.down, out RaycastHit hit, 1000f, LayerIndex.CommonMasks.bullet))
             {
