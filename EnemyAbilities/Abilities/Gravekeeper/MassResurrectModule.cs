@@ -112,6 +112,9 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             GravekeeperGhostItem = ScriptableObject.CreateInstance<ItemDef>();
             (GravekeeperGhostItem as ScriptableObject).name = "GravekeeperGhostItem";
             GravekeeperGhostItem.tier = ItemTier.NoTier;
+#pragma warning disable CS0618 // Type or member is obsolete
+            GravekeeperGhostItem.deprecatedTier = ItemTier.NoTier;
+#pragma warning restore CS0618 // Type or member is obsolete
             GravekeeperGhostItem.nameToken = "ITEM_SKELETOGNE_ENEMYGHOST_NAME";
             GravekeeperGhostItem.pickupToken = "ITEM_SKELETOGNE_ENEMYGHOST_PICKUP";
             GravekeeperGhostItem.descriptionToken = "ITEM_SKELETOGNE_ENEMYGHOST_DESC";
@@ -363,6 +366,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
                     Vector3 targetPosition = resurrectController.ai.currentEnemy.characterBody.transform.position;
                     Vector3 direction = (targetPosition - projectilePosition).normalized;
                     Quaternion rotation = Util.QuaternionSafeLookRotation(direction + (UnityEngine.Random.insideUnitSphere * 0.05f));
+                    DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Special, damageType = DamageType.Generic };
                     FireProjectileInfo info = new FireProjectileInfo
                     {
                         projectilePrefab = gravestoneProjectile,

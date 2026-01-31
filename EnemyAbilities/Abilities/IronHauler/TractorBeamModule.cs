@@ -917,6 +917,7 @@ namespace EnemyAbilities.Abilities.IronHauler
                 {
                     blastAttack.Fire();
                 }
+                DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Utility, damageType = DamageType.Generic };
                 DamageInfo damageInfo = new DamageInfo
                 {
                     attacker = body.gameObject,

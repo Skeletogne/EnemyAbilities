@@ -202,6 +202,7 @@ namespace EnemyAbilities.Abilities.FlyingVermin
                 characterMotor.velocity = Vector3.zero;
                 if (base.isAuthority)
                 {
+                    DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Secondary, damageType = DamageType.Generic };
                     BlastAttack blastAttack = new BlastAttack();
                     blastAttack.attacker = characterBody.gameObject;
                     blastAttack.inflictor = characterBody.gameObject;
@@ -214,7 +215,7 @@ namespace EnemyAbilities.Abilities.FlyingVermin
                     blastAttack.baseDamage = damageCoefficient * damageStat;
                     blastAttack.crit = RollCrit();
                     blastAttack.damageColorIndex = DamageColorIndex.Default;
-                    blastAttack.damageType = DamageType.Generic;
+                    blastAttack.damageType = combo;
                     blastAttack.teamIndex = teamComponent.teamIndex;
                     blastAttack.falloffModel = BlastAttack.FalloffModel.SweetSpot;
                     blastAttack.Fire();

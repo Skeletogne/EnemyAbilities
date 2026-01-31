@@ -57,6 +57,10 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 
 # Changelog
 
+## 1.3.1
+- The Grovetender ghost item (should) no longer appear as a white item.
+- Added DamageSources to each of the mod's attacks.
+
 ## 1.3.0
 - Gave Grovetenders a new Special: Mass Resurrect!
 - Added some new visuals for Solus Prospectors' Drill Burrow

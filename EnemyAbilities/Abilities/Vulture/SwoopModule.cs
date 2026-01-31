@@ -282,7 +282,8 @@ namespace EnemyAbilities.Abilities.Vulture
             attack.hitEffectPrefab = hitEffect;
             attack.isCrit = RollCrit();
             attack.procCoefficient = procCoefficient;
-            attack.damageType = vultureSwoopInflictsBleed.Value ? DamageType.BleedOnHit : DamageType.Generic;
+            DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Secondary, damageType = (vultureSwoopInflictsBleed.Value ? DamageType.BleedOnHit : DamageType.Generic) };
+            attack.damageType = combo;
             attack.hitBoxGroup = FindHitBoxGroup("VultureMelee");
             attack.forceVector = base.characterDirection.forward * 500f;
         }

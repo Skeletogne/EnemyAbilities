@@ -530,7 +530,8 @@ namespace EnemyAbilities.Abilities.XiConstruct
             {
                 Ray aimRay = GetAimRay();
                 Quaternion modelRotation = modelLocator.modelTransform.rotation;
-                ProjectileManager.instance.FireProjectile(projectilePrefab, aimRay.origin, modelRotation, characterBody.gameObject, (xiCoreDamageCoefficient.Value / 100f) * damageStat, force, RollCrit(), DamageColorIndex.Default, null, speedOverride);
+                DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Secondary, damageType = DamageType.Generic };
+                ProjectileManager.instance.FireProjectile(projectilePrefab, aimRay.origin, modelRotation, characterBody.gameObject, (xiCoreDamageCoefficient.Value / 100f) * damageStat, force, RollCrit(), DamageColorIndex.Default, null, speedOverride, combo);
             }
             ToggleEyeVisual(false);
             ToggleHurtBoxes(false);

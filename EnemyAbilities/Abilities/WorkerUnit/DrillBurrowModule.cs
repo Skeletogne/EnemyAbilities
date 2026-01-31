@@ -293,6 +293,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
             Emerge();
             SetSprintEffectState(true);
             PlayAnimation("Gesture, Additive", "FrenziedMeleeAttack", "attack.playbackRate", 1f);
+            DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Secondary, damageType = DamageType.Generic };
             BlastAttack blastAttack = new BlastAttack();
             blastAttack.attacker = base.gameObject;
             blastAttack.attackerFiltering = AttackerFiltering.NeverHitSelf;
@@ -301,7 +302,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
             blastAttack.bonusForce = bonusForce;
             blastAttack.crit = RollCrit();
             blastAttack.damageColorIndex = DamageColorIndex.Default;
-            blastAttack.damageType = DamageType.Generic;
+            blastAttack.damageType = combo;
             blastAttack.falloffModel = BlastAttack.FalloffModel.SweetSpot;
             blastAttack.inflictor = base.gameObject;
             blastAttack.position = targetPos;

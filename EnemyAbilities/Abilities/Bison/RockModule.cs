@@ -271,7 +271,7 @@ namespace EnemyAbilities.Abilities.Bison
                     if (success)
                     {
                         Vector3 rockSpawnPosition = hit.point + new Vector3(0f, 1.75f, 0f);
-                        DamageTypeCombo combo = DamageType.Generic;
+                        DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Secondary, damageType = DamageType.Generic };
                         combo.AddModdedDamageType(RockModule.rockDamageType);
                         ProjectileManager.instance.FireProjectile(projectilePrefab, rockSpawnPosition, Util.QuaternionSafeLookRotation(UnityEngine.Random.onUnitSphere), characterBody.gameObject, (bisonRockDamageCoefficient.Value / 100f) * damageStat, 2000f, RollCrit(), DamageColorIndex.Default, null, 0f, combo);
                     }

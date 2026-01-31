@@ -174,7 +174,8 @@ namespace EnemyAbilities.Abilities.ClayBruiser
                 }
                 if (base.isAuthority)
                 {
-                    ProjectileManager.instance.FireProjectile(ClusterGrenadeModule.projectilePrefab, characterBody.aimOrigin, Util.QuaternionSafeLookRotation(direction + randomDeviation), characterBody.gameObject, damageStat * (templarGrenadeDamageCoefficient.Value / 100f), 1000f, RollCrit(), DamageColorIndex.Default, null, speedOverride, DamageType.ClayGoo);
+                    DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Utility, damageType = DamageType.ClayGoo };
+                    ProjectileManager.instance.FireProjectile(ClusterGrenadeModule.projectilePrefab, characterBody.aimOrigin, Util.QuaternionSafeLookRotation(direction + randomDeviation), characterBody.gameObject, damageStat * (templarGrenadeDamageCoefficient.Value / 100f), 1000f, RollCrit(), DamageColorIndex.Default, null, speedOverride, combo);
                 }
                 grenadeIndex++;
             }
