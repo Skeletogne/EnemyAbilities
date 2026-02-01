@@ -13,9 +13,7 @@ using UnityEngine.Networking;
 using RoR2.Projectile;
 using Rewired.ComponentControls.Effects;
 using System.Linq;
-using HarmonyLib;
 using MonoMod.Cil;
-using System.Reflection;
 using Mono.Cecil.Cil;
 using static EnemyAbilities.PluginConfig;
 
@@ -36,6 +34,9 @@ namespace EnemyAbilities.Abilities.Gravekeeper
         public static GameObject tetherPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_moon2.BloodSiphonTetherVFX_prefab).WaitForCompletion();
         public static GameObject muzzleFlashWinch = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Gravekeeper.MuzzleflashWinch_prefab).WaitForCompletion();
 
+        private static Material defaultGhostMaterial = Addressables.LoadAssetAsync<Material>(RoR2_Base_Common.matOnFire_mat).WaitForCompletion();
+        private static Material ghostMaterialClone;
+
         public static ItemDef GravekeeperGhostItem;
         public static BuffDef GravekeeperArmorBuff;
 
@@ -50,6 +51,32 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             GlobalEventManager.onCharacterDeathGlobal += CheckToSpawnGravestone;
             bodyPrefab.AddComponent<GravekeeperResurrectController>();
             R2API.RecalculateStatsAPI.GetStatCoefficients += RecalculateStatsAPI_GetStatCoefficients;
+            ghostMaterialClone = new Material(defaultGhostMaterial);
+            ghostMaterialClone.color = Color.green;
+            IL.RoR2.CharacterModel.UpdateRendererMaterials += (il) =>
+            {
+                ILCursor c1 = new ILCursor(il);
+                if (c1.TryGotoNext(
+                    x => x.MatchLdsfld<CharacterModel>(nameof(CharacterModel.sharedMaterialArrays))
+                ))
+                {
+                    c1.Emit(OpCodes.Ldarg_0);
+                    c1.Emit(OpCodes.Ldloc_0);
+                    c1.EmitDelegate<Func<CharacterModel, Material, Material>>((model, material) =>
+                    {
+                        if (model != null && model.gameObject.GetComponent<GravekeeperGhostModelComponent>() != null)
+                        {
+                            material = ghostMaterialClone;
+                        }
+                        return material;
+                    });
+                    c1.Emit(OpCodes.Stloc_0);
+                }
+                else
+                {
+                    Log.Error($"UpdateRendererMaterial ILCursor c1 failed to match!");
+                }
+            };
         }
 
         private void RecalculateStatsAPI_GetStatCoefficients(CharacterBody sender, RecalculateStatsAPI.StatHookEventArgs args)
@@ -123,6 +150,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             GravekeeperGhostItem.hidden = true;
 
             ContentAddition.AddItemDef(GravekeeperGhostItem);
+            /*
             IL.RoR2.CharacterModel.UpdateOverlays += (il) =>
             {
                 ILCursor c1 = new ILCursor(il);
@@ -174,7 +202,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
                 {
                     Log.Error($"IL.RoR2.CharacterModel.UpdateOverlayStates cursor c1 failed to match! Happiest Mask visuals affected.");
                 }
-            };
+            };*/
         }
         private void CreateSkill()
         {
@@ -593,6 +621,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             }
             tetherVfxOrigin.SetTetheredTransforms(transformList);
             body.SetBuffCount(MassResurrectModule.GravekeeperArmorBuff.buffIndex, transformList.Count);
+
         }
     }
     public class FloatingGravestoneController : MonoBehaviour
@@ -678,6 +707,9 @@ namespace EnemyAbilities.Abilities.Gravekeeper
                 gameObject.transform.up = direction;
             }
         }
+    }
+    public class GravekeeperGhostModelComponent : MonoBehaviour
+    {
     }
     public class ProjectileGravestone : MonoBehaviour, IProjectileImpactBehavior
     {
@@ -805,6 +837,11 @@ namespace EnemyAbilities.Abilities.Gravekeeper
                     {
                         rigidbody.velocity = impactNormal * 20f;
                     }
+                }
+                CharacterModel model = body.gameObject.GetComponentInChildren<CharacterModel>();
+                if (model != null)
+                {
+                    model.gameObject.AddComponent<GravekeeperGhostModelComponent>();
                 }
             }
             void PreSpawnSetup(CharacterMaster newMaster)

@@ -57,6 +57,9 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 
 # Changelog
 
+## 1.3.2
+- Updated Grovetender ghost visuals to look fiery to differentiate from Happiest Mask visuals
+
 ## 1.3.1
 - The Grovetender ghost item (should) no longer appear as a white item.
 - Added DamageSources to each of the mod's attacks.
