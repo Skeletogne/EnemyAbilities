@@ -684,7 +684,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
                 AISkillDriver current = baseAI.skillDriverEvaluation.dominantSkillDriver;
                 if (current != last)
                 {
-                    Log.Debug($"DRIVER CHANGE: {(last != null ? last.customName : "N/A")} => {current.customName}");
+                    //Log.Debug($"DRIVER CHANGE: {(last != null ? last.customName : "N/A")} => {current.customName}");
                     last = current;
                 }
             }
