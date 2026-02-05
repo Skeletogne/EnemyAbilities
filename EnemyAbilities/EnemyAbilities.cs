@@ -31,7 +31,7 @@ namespace EnemyAbilities
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Skeletogne";
         public const string PluginName = "EnemyAbilities";
-        public const string PluginVersion = "1.3.2";
+        public const string PluginVersion = "1.4.0";
 
         internal static bool RooInstalled => Chainloader.PluginInfos.ContainsKey("com.rune580.riskofoptions");
         public static EnemyAbilities Instance { get; private set; }

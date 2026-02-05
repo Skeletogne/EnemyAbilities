@@ -261,7 +261,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
         public void Telegraph()
         {
             targetPos = base.transform.position;
-            if (target != null)
+            if (target != null && target.healthComponent != null && target.healthComponent.body != null)
             {
                 targetPos = target.healthComponent.body.footPosition;
                 //probably need a better sound cue than this?
@@ -339,7 +339,14 @@ namespace EnemyAbilities.Abilities.SolusProspector
         }
         public override InterruptPriority GetMinimumInterruptPriority()
         {
-            return InterruptPriority.PrioritySkill;
+            if (currentState == DrillBurrowState.Windup || currentState == DrillBurrowState.Attacking)
+            {
+                return InterruptPriority.PrioritySkill;
+            }
+            else
+            {
+                return InterruptPriority.Death;
+            }
         }
     }
 }

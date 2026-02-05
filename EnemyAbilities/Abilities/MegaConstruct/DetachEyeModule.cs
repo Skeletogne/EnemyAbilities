@@ -295,12 +295,20 @@ namespace EnemyAbilities.Abilities.XiConstruct
             useSecondary.maxUserHealthFraction = 1f;
             masterPrefab.ReorderSkillDrivers(useSecondary, 7);
 
-            AISkillDriver stopStep = masterPrefab.GetComponents<AISkillDriver>().Where(driver => driver.customName == "StopStep").FirstOrDefault();
-            if (stopStep != null)
+            //band aid fix
+            foreach (AISkillDriver aiSkillDriver in masterPrefab.GetComponents<AISkillDriver>())
             {
-                stopStep.nextHighPriorityOverride = useSecondary;
-                stopStep.moveTargetType = AISkillDriver.TargetType.Custom;
-                stopStep.aimType = AISkillDriver.AimType.AtMoveTarget;
+                aiSkillDriver.aimType = AISkillDriver.AimType.AtMoveTarget;
+                aiSkillDriver.moveTargetType = AISkillDriver.TargetType.Custom;
+                if (aiSkillDriver.customName == "StopStep")
+                {
+                    aiSkillDriver.nextHighPriorityOverride = useSecondary;
+                }
+                if (aiSkillDriver.customName == "ShootStep")
+                {
+                    aiSkillDriver.selectionRequiresTargetLoS = false;
+                    aiSkillDriver.activationRequiresTargetLoS = true;
+                }
             }
         }
         public class DetachEyeDamageEffectOrb : GenericDamageOrb
@@ -651,6 +659,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
         public bool validToUseSkill;
         private float targetCheckTimer;
         private static float targetCheckInterval = 0.25f;
+        private AISkillDriver last;
 
         public void Awake()
         {
@@ -670,6 +679,17 @@ namespace EnemyAbilities.Abilities.XiConstruct
         }
         public void FixedUpdate()
         {
+            if (baseAI != null && baseAI.skillDriverEvaluation.dominantSkillDriver != null)
+            {
+                AISkillDriver current = baseAI.skillDriverEvaluation.dominantSkillDriver;
+                if (current != last)
+                {
+                    Log.Debug($"DRIVER CHANGE: {(last != null ? last.customName : "N/A")} => {current.customName}");
+                    last = current;
+                }
+            }
+
+
             targetCheckTimer -= Time.fixedDeltaTime;
             if (targetCheckTimer < 0)
             {

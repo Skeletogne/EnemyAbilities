@@ -20,12 +20,19 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 - Slams down with a poison explosion to hit targets directly beneath it.
 - Enters a grounded state for three seconds afterwards.
 
+## Clay Apothecary Special: Tar Deluge (new)
+
+- Spawns a Tar Ball that it charges for 3 seconds. If it takes damage during the charge, the Tar Ball will get bigger and deal more damage!
+- Creates a large lingering tar area upon landing. Deals low damage, but applies tar. The zone is larger the more charged the Tar Ball was!
+- If killed during the charge, it blows up, damaging nearby monsters!
+- Only usable below 60% health.
+
 ## Clay Templar Utility: Grenade Barrage
 
 - Launches a volley of five tar-filled grenades over cover to flush it's target out.
 - Only usable if it doesn't have line of sight, and can draw an arc to the target.
 
-## Grovetender Special: Mass Resurrect (new!)
+## Grovetender Special: Mass Resurrect
 
 - Grovetenders passively collect gravestones when nearby enemies die.
 - They then launch collected gravestones at the player, which explode into the ghost of the killed enemy.
@@ -57,8 +64,15 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 
 # Changelog
 
+## 1.4.0
+- Gave Clay Apothecaries a new ability: Tar Deluge!
+- Should no longer replace Pillar of Blood visuals with Grovetender chains.
+- Prospectors should no longer get yoinked out of the ground by Transport Drones.
+- Fixed an NRE related to Prospectors getting stuck underground.
+- Xi Constructs previously had trouble making up their minds about their targets. This has a band-aid fix: Xi Constructs will now ALWAYS target players. 
+
 ## 1.3.2
-- Updated Grovetender ghost visuals to look fiery to differentiate from Happiest Mask visuals
+- Updated Grovetender ghost visuals to look fiery to differentiate from Happiest Mask visuals.
 
 ## 1.3.1
 - The Grovetender ghost item (should) no longer appear as a white item.

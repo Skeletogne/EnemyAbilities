@@ -31,7 +31,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
         public static GameObject gravestoneModel = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common_Props.mdlIcoRockM_fbx).WaitForCompletion();
         public static Material gravestoneMaterial = Addressables.LoadAssetAsync<Material>(RoR2_Base_wispgraveyard.matTempleObelisk_mat).WaitForCompletion();
         public static Material chainMaterial = Addressables.LoadAssetAsync<Material>(RoR2_Base_Gravekeeper.matGravekeeperHookChain_mat).WaitForCompletion();
-        public static GameObject tetherPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_moon2.BloodSiphonTetherVFX_prefab).WaitForCompletion();
+        public static GameObject tetherPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_moon2.BloodSiphonTetherVFX_prefab).WaitForCompletion().InstantiateClone("grovetenderChainTetherPrefab");
         public static GameObject muzzleFlashWinch = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Gravekeeper.MuzzleflashWinch_prefab).WaitForCompletion();
 
         private static Material defaultGhostMaterial = Addressables.LoadAssetAsync<Material>(RoR2_Base_Common.matOnFire_mat).WaitForCompletion();
@@ -52,7 +52,6 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             bodyPrefab.AddComponent<GravekeeperResurrectController>();
             R2API.RecalculateStatsAPI.GetStatCoefficients += RecalculateStatsAPI_GetStatCoefficients;
             ghostMaterialClone = new Material(defaultGhostMaterial);
-            ghostMaterialClone.color = Color.green;
             IL.RoR2.CharacterModel.UpdateRendererMaterials += (il) =>
             {
                 ILCursor c1 = new ILCursor(il);
@@ -150,59 +149,6 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             GravekeeperGhostItem.hidden = true;
 
             ContentAddition.AddItemDef(GravekeeperGhostItem);
-            /*
-            IL.RoR2.CharacterModel.UpdateOverlays += (il) =>
-            {
-                ILCursor c1 = new ILCursor(il);
-                MethodBase setIsGhost = AccessTools.PropertySetter(typeof(CharacterModel), nameof(CharacterModel.isGhost));
-                if (c1.TryGotoNext(
-                    x => x.MatchCallOrCallvirt(setIsGhost)
-                ))
-                {
-                    c1.Emit(OpCodes.Ldarg_0);
-                    c1.EmitDelegate<Func<int, CharacterModel, int>>((originalValue, model) =>
-                    {
-                        if (model != null && model.body != null)
-                        {
-                            if (model.body.inventory != null && model.body.inventory.GetItemCountPermanent(GravekeeperGhostItem) > 0)
-                            {
-                                return 1;
-                            }
-                        }
-                        return originalValue;
-                    });
-                }
-                else
-                {
-                    Log.Error($"IL.RoR2.CharacterModel.UpdateOverlays cursor c1 failed to match! Happiest Mask visuals affected.");
-                }
-            };
-            IL.RoR2.CharacterModel.UpdateOverlayStates += (il) =>
-            {
-                ILCursor c1 = new ILCursor(il);
-                MethodBase setIsGhost = AccessTools.PropertySetter(typeof(CharacterModel), nameof(CharacterModel.isGhost));
-                if (c1.TryGotoNext(
-                    x => x.MatchCallOrCallvirt(setIsGhost)
-                ))
-                {
-                    c1.Emit(OpCodes.Ldarg_0);
-                    c1.EmitDelegate<Func<int, CharacterModel, int>>((originalValue, model) =>
-                    {
-                        if (model != null && model.body != null)
-                        {
-                            if (model.body.inventory != null && model.body.inventory.GetItemCountPermanent(GravekeeperGhostItem) > 0)
-                            {
-                                return 1;
-                            }
-                        }
-                        return originalValue;
-                    });
-                }
-                else
-                {
-                    Log.Error($"IL.RoR2.CharacterModel.UpdateOverlayStates cursor c1 failed to match! Happiest Mask visuals affected.");
-                }
-            };*/
         }
         private void CreateSkill()
         {

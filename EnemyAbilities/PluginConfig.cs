@@ -85,6 +85,21 @@ namespace EnemyAbilities
         public static ConfigEntry<float> grovetenderResurrectHealthThreshold { get; set; }
         public static ConfigEntry<float> grovetenderResurrectArmorPerGhost { get; set; }
 
+
+        public static ConfigEntry<float> apothecaryDelugeCooldown { get; set; }
+        public static ConfigEntry<float> apothecaryDelugeMinDamage { get; set; }
+        public static ConfigEntry<float> apothecaryDelugeMaxDamage { get; set; }
+        public static ConfigEntry<float> apothecaryDelugeMinRadius { get; set; }
+        public static ConfigEntry<float> apothecaryDelugeMaxRadius { get; set; }
+        public static ConfigEntry<float> apothecaryDelugeHealthPercentageRequiredForFullCharge { get; set; }
+        public static ConfigEntry<float> apothecaryDelugeHealthThreshold { get; set; }
+        public static ConfigEntry<float> apothecaryDelugeChargeTime { get; set; }
+        public static ConfigEntry<float> apothecaryDelugeTravelTime { get; set; }
+        public static ConfigEntry<float> apothecaryDelugeFuseTime { get; set; }
+        public static ConfigEntry<float> apothecaryDelugePlayerDetonateDamage { get; set; }
+        public static ConfigEntry<float> apothecaryDelugeAoEZoneDamagePercentage { get; set; }
+        public static ConfigEntry<float> apothecaryDelugeAoEZoneDuration { get; set; }
+
         public enum FormatType
         {
             None = 0,
@@ -96,9 +111,6 @@ namespace EnemyAbilities
 
         public static void Init(ConfigFile cfg)
         {
-
-
-
             if (EnemyAbilities.RooInstalled)
                 InitRoO();
 
@@ -182,6 +194,22 @@ namespace EnemyAbilities
             grovetenderResurrectMaxGravestones = cfg.BindOptionSteppedSlider("Grovetender", "Resurrect Max Gravestones", 8f, 1f, "The maximum amount of gravestones a Grovetender can have active at once. Enemies that die beyond this limit will not create gravestones.", 2f, 20f, true, FormatType.None);
             grovetenderResurrectCooldown = cfg.BindOptionSteppedSlider("Grovetender", "Resurrect Cooldown", 60f, 0.1f, "The cooldown of Mass Resurrect", 30f, 120f, true, FormatType.Time);
             grovetenderResurrectArmorPerGhost = cfg.BindOptionSteppedSlider("Grovetender", "Resurrect Armor Per Ghost", 30f, 1f, "The amount of armour that the Grovetender gains per active ghost.", 5f, 100f, true, FormatType.None);
+
+            apothecaryDelugeMinDamage = cfg.BindOptionSteppedSlider("Clay Apothecary", "Deluge Min Damage", 100f, 5f, "", 50f, 200f, true, FormatType.Percentage);
+            apothecaryDelugeMaxDamage = cfg.BindOptionSteppedSlider("Clay Apothecary", "Deluge Max Damage", 200f, 5f, "", 250f, 800f, true, FormatType.Percentage);
+            apothecaryDelugeMinRadius = cfg.BindOptionSteppedSlider("Clay Apothecary", "Deluge Min Radius", 10f, 0.1f, "", 6f, 12f, true, FormatType.Distance);
+            apothecaryDelugeMaxRadius = cfg.BindOptionSteppedSlider("Clay Apothecary", "Deluge Max Radius", 24f, 0.1f, "", 14f, 30f, true, FormatType.Distance);
+            apothecaryDelugeAoEZoneDamagePercentage = cfg.BindOptionSteppedSlider("Clay Apothecary", "Deluge AoE Damage Percentage", 5f, 1f, "The damage of the AoE per tick as a percentage of the Detonation's damage. This will naturally increase the more the tar ball is charged.", 1f, 20f, true, FormatType.Percentage);
+            apothecaryDelugeHealthPercentageRequiredForFullCharge = cfg.BindOptionSteppedSlider("Clay Apothecary", "Health Percentage for Full Charge", 25f, 1f, "", 5f, 50f, true, FormatType.Percentage);
+            apothecaryDelugeHealthThreshold = cfg.BindOptionSteppedSlider("Clay Apothecary", "Deluge Health Threshold", 60f, 1f, "The health threshold the Apothecary must be under to use Tar Deluge.", 10f, 100f, true, FormatType.Percentage);
+            apothecaryDelugeAoEZoneDuration = cfg.BindOptionSteppedSlider("Clay Apothecary", "Deluge Zone Duration", 20f, 0.1f, "The duration of time that the Tar Zone lingers for.", 8f, 60f, true, FormatType.Time);
+            apothecaryDelugeChargeTime = cfg.BindOptionSteppedSlider("Clay Apothecary", "Deluge Charge Time", 3f, 0.1f, "The time that the Apothecary spends charging the Tar Ball before firing it.", 1f, 5f, true, FormatType.Time);
+            apothecaryDelugeTravelTime = cfg.BindOptionSteppedSlider("Clay Apothecary", "Deluge Travel Time", 3f, 0.1f, "The time that the Tar Ball spends in the air before reaching it's target.", 1f, 5f, true, FormatType.Time);
+            apothecaryDelugeFuseTime = cfg.BindOptionSteppedSlider("Clay Apothecary", "Deluge Fuse Time", 1f, 0.1f, "The time that the Tar Ball takes to explode after landing.", 0.2f, 2f, true, FormatType.Time);
+            apothecaryDelugePlayerDetonateDamage = cfg.BindOptionSteppedSlider("Clay Apothecary", "Player Detonation Damage", 800f, 5f, "The damage coefficient of the Tar Ball if it's detonated by a player (through killing the apothecary whilst it's charging - the tar ball cannot be killed once airborne).", 350f, 1600f, true, FormatType.Percentage);
+            apothecaryDelugeCooldown = cfg.BindOptionSteppedSlider("Clay Apothecary", "Deluge Cooldown", 30f, 0.1f, "The cooldown of the Tar Deluge ability", 15f, 60f, true, FormatType.Time);
+
+
         }
         //absolutely ancient plugin config, .score gave this to me in like 2024 
         public static void InitRoO()
