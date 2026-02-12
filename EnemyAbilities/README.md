@@ -39,7 +39,7 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 - Ghosts provide armour to the grovetender.
 - Only usable below 50% HP.
 
-## Lunar Chimera (Golem) Special: Laser Sweep
+## Lunar Chimera (Golem) Special: Laser Sweep (new!)
 
 - Sweeps a laser along the ground towards the player, igniting the ground.
 - Ignited ground deals light AoE, and explodes after a short delay.
