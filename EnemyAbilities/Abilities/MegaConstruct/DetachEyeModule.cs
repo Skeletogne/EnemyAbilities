@@ -258,19 +258,19 @@ namespace EnemyAbilities.Abilities.XiConstruct
         }
         public void CreateSkill()
         {
-            FireEyeSkillDef detachEyeDef = ScriptableObject.CreateInstance<FireEyeSkillDef>();
-            (detachEyeDef as ScriptableObject).name = "MegaConstructBodyDetachEye";
-            detachEyeDef.skillName = "MegaConstructDetachEye";
-            detachEyeDef.activationStateMachineName = "Body";
-            detachEyeDef.activationState = ContentAddition.AddEntityState<DetachEye>(out _);
-            detachEyeDef.baseRechargeInterval = xiCoreCooldown.Value;   
-            detachEyeDef.cancelSprintingOnActivation = true;
-            detachEyeDef.isCombatSkill = true;
-            ContentAddition.AddSkillDef(detachEyeDef);
+            FireEyeSkillDef detachEye = ScriptableObject.CreateInstance<FireEyeSkillDef>();
+            (detachEye as ScriptableObject).name = "MegaConstructBodyDetachEye";
+            detachEye.skillName = "MegaConstructDetachEye";
+            detachEye.activationStateMachineName = "Body";
+            detachEye.activationState = ContentAddition.AddEntityState<DetachEye>(out _);
+            detachEye.baseRechargeInterval = xiCoreCooldown.Value;   
+            detachEye.cancelSprintingOnActivation = true;
+            detachEye.isCombatSkill = true;
+            ContentAddition.AddSkillDef(detachEye);
 
             SkillFamily skillFamily = ScriptableObject.CreateInstance<SkillFamily>();
             (skillFamily as ScriptableObject).name = "MegaConstructSecondaryFamily";
-            skillFamily.variants = [new SkillFamily.Variant() { skillDef =  detachEyeDef }];
+            skillFamily.variants = [new SkillFamily.Variant() { skillDef =  detachEye }];
 
             GenericSkill skill = bodyPrefab.AddComponent<GenericSkill>();
             skill.skillName = "MegaConstructDetachEye";

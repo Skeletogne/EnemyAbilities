@@ -12,14 +12,6 @@ using BepInEx.Configuration;
 //update README.md to include changelog
 //make sure git repository is up-to-date
 
-//ideas
-
-//child - spawns two clones that frolick but don't attack and die instantly when attacked.
-//clay apothecary - lays down a huge AoE DoT tarfield that lingers for a long time
-//gip/geep/gup - launches a blob of gupiness that "tethers" players hit to it's center, making it hard for them to leave a small AoE
-//mini mushrum - fires a cloud of slow-moving healing spores towards an ally. can also heal the player
-//void barnacle - shoots a dart at nearby enemies that makes them void-touched and causes them to sprout mini void barnacles
-
 namespace EnemyAbilities
 {
 
@@ -31,7 +23,7 @@ namespace EnemyAbilities
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Skeletogne";
         public const string PluginName = "EnemyAbilities";
-        public const string PluginVersion = "1.4.0";
+        public const string PluginVersion = "1.5.0";
 
         internal static bool RooInstalled => Chainloader.PluginInfos.ContainsKey("com.rune580.riskofoptions");
         public static EnemyAbilities Instance { get; private set; }

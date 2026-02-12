@@ -516,7 +516,7 @@ namespace EnemyAbilities.Abilities.IronHauler
         public override void FixedUpdate()
         {
             base.FixedUpdate();
-            if (targetBody == null || targetBody.healthComponent == null || !targetBody.healthComponent.alive || ai.customTarget == null) //just to be on the safe side
+            if (targetBody == null || targetBody.healthComponent == null || !targetBody.healthComponent.alive || ai.customTarget == null || cargoBody == null) //just to be on the safe side
             {
                 outer.SetNextStateToMain();
                 return;
@@ -830,7 +830,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             if (fixedUpdatesWithoutHauler > maxFixedUpdatesWithoutHauler && !flung && !readyToFling)
             {
                 //fallback
-                Log.Error($"IronHaulerCargoController has existed for {fixedUpdatesWithoutHauler} fixed updates without a hauler! Destroying...");
+                //Log.Error($"IronHaulerCargoController has existed for {fixedUpdatesWithoutHauler} fixed updates without a hauler! Destroying...");
                 restore = true;
                 return;
             }

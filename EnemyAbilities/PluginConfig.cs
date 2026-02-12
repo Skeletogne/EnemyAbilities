@@ -100,6 +100,18 @@ namespace EnemyAbilities
         public static ConfigEntry<float> apothecaryDelugeAoEZoneDamagePercentage { get; set; }
         public static ConfigEntry<float> apothecaryDelugeAoEZoneDuration { get; set; }
 
+
+        public static ConfigEntry<float> lunarGolemLaserCooldown { get; set; }
+        public static ConfigEntry<float> lunarGolemLaserCharges { get; set; }
+        public static ConfigEntry<float> lunarGolemHealthThreshold { get; set; }
+        public static ConfigEntry<float> lunarGolemWindupDuration { get; set; }
+        public static ConfigEntry<float> lunarGolemSweepDuration { get; set; }
+        public static ConfigEntry<float> lunarGolemExplosionDelay { get; set; }
+        public static ConfigEntry<float> lunarGolemExplosionRadius { get; set; }
+        public static ConfigEntry<float> lunarGolemDoTDamageCoefficient { get; set; }
+        public static ConfigEntry<float> lunarGolemExplosionDamageCoefficient { get; set; }
+
+
         public enum FormatType
         {
             None = 0,
@@ -209,7 +221,15 @@ namespace EnemyAbilities
             apothecaryDelugePlayerDetonateDamage = cfg.BindOptionSteppedSlider("Clay Apothecary", "Player Detonation Damage", 800f, 5f, "The damage coefficient of the Tar Ball if it's detonated by a player (through killing the apothecary whilst it's charging - the tar ball cannot be killed once airborne).", 350f, 1600f, true, FormatType.Percentage);
             apothecaryDelugeCooldown = cfg.BindOptionSteppedSlider("Clay Apothecary", "Deluge Cooldown", 30f, 0.1f, "The cooldown of the Tar Deluge ability", 15f, 60f, true, FormatType.Time);
 
-
+            lunarGolemLaserCooldown = cfg.BindOptionSteppedSlider("Lunar Golem", "Laser Cooldown", 20f, 0.1f, "", 10f, 40f, true, FormatType.Time);
+            lunarGolemLaserCharges = cfg.BindOptionSteppedSlider("Lunar Golem", "Laser Charges", 2f, 1f, "", 1f, 4f, true, FormatType.None);
+            lunarGolemHealthThreshold = cfg.BindOptionSteppedSlider("Lunar Golem", "Laser Health Threshold", 90f, 1f, "", 0f, 100f, true, FormatType.Percentage);
+            lunarGolemWindupDuration = cfg.BindOptionSteppedSlider("Lunar Golem", "Laser Windup Duration", 0.75f, 0.01f, "", 0.25f, 2f, true, FormatType.Time);
+            lunarGolemSweepDuration = cfg.BindOptionSteppedSlider("Lunar Golem", "Laser Sweep Duration", 1f, 0.01f, "", 0.25f, 3f, true, FormatType.Time);
+            lunarGolemExplosionDelay = cfg.BindOptionSteppedSlider("Lunar Golem", "Laser Explosion Delay", 2f, 0.1f, "", 0.5f, 3f, true, FormatType.Time);
+            lunarGolemExplosionRadius = cfg.BindOptionSteppedSlider("Lunar Golem", "Laser Explosion Radius", 8f, 0.1f, "", 4f, 12f, true, FormatType.Distance);
+            lunarGolemDoTDamageCoefficient = cfg.BindOptionSteppedSlider("Lunar Golem", "Laser DoT Damage Coefficient", 10f, 1f, "", 1f, 50f, true, FormatType.Percentage);
+            lunarGolemExplosionDamageCoefficient = cfg.BindOptionSteppedSlider("Lunar Golem", "Laser Explosion Damage Coefficient", 150f, 5f, "", 100f, 300f, true, FormatType.Percentage);
         }
         //absolutely ancient plugin config, .score gave this to me in like 2024 
         public static void InitRoO()
