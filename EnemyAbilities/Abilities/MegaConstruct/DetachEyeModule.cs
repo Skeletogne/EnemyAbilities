@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Text;
 using EntityStates;
 using EntityStates.MajorConstruct.Weapon;
 using HarmonyLib;
@@ -17,13 +15,10 @@ using RoR2.CharacterAI;
 using RoR2.Orbs;
 using RoR2.Projectile;
 using RoR2.Skills;
-using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
+using RoR2BepInExPack.GameAssetPaths.Version_1_39_0;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.Rendering;
 using static EnemyAbilities.Utils;
-using static RoR2.CharacterAI.BaseAI;
-using static UnityEngine.UI.GridLayoutGroup;
 using static EnemyAbilities.PluginConfig;
 
 namespace EnemyAbilities.Abilities.XiConstruct
@@ -75,14 +70,13 @@ namespace EnemyAbilities.Abilities.XiConstruct
                 }
                 else
                 {
-
+                    Log.Error($"IL.RoR2.CharacterBody.RecalculateStats Cursor c1 failed to match!");
                 }
             };
             On.RoR2.HealthComponent.TakeDamageProcess += CreateDamageEffectOrb;
             transferDamageImpactEffect.GetComponent<EffectComponent>().applyScale = true;
             ContentAddition.AddEffect(transferDamageImpactEffect);
         }
-
         private void CreateDamageEffectOrb(On.RoR2.HealthComponent.orig_TakeDamageProcess orig, HealthComponent self, DamageInfo damageInfo)
         {
             if (self != null && damageInfo != null && damageInfo.damage > 0)
@@ -107,7 +101,6 @@ namespace EnemyAbilities.Abilities.XiConstruct
             }
             orig(self, damageInfo);
         }
-
         public void ModifyProjectilePrefab()
         {
             ProjectileDirectionalTargetFinder finder = vagrantProjectile.GetComponent<ProjectileDirectionalTargetFinder>();
@@ -151,13 +144,11 @@ namespace EnemyAbilities.Abilities.XiConstruct
                     ParticleSystem[] systems = projectileGhost.GetComponentsInChildren<ParticleSystem>();
                     MeshRenderer ghostMeshRenderer = projectileGhost.GetComponentInChildren<MeshRenderer>();
                     RotateAroundAxis rotateAroundAxis = projectileGhost.GetComponentInChildren<RotateAroundAxis>();
+                    Destroy(rotateAroundAxis);
                     Rigidbody rigidbody = vagrantProjectile.GetComponent<Rigidbody>();
                     SphereCollider sphere = rigidbody.GetComponent<SphereCollider>();
                     sphere.radius = 0.2f;
                     rigidbody.mass = 1f;
-                    rotateAroundAxis.fastRotationSpeed = 0f;
-                    rotateAroundAxis.slowRotationSpeed = 0f;
-                    rotateAroundAxis.rotateAroundAxis = RotateAroundAxis.RotationAxis.Y;
                     ghostMeshRenderer.material = eyeMaterialClone;
                     ghostMeshRenderer.forceRenderingOff = false;
                     controller.ghostPrefab = projectileGhost;
@@ -210,7 +201,6 @@ namespace EnemyAbilities.Abilities.XiConstruct
                     stick.ignoreCharacters = true;
                     stick.ignoreWorld = false;
                     stick.ignoreSteepSlopes = false;
-                    SkillLocator locator = vagrantProjectile.GetComponent<SkillLocator>();
 
                     CharacterBody xiConstructBody = bodyPrefab.GetComponent<CharacterBody>();
 
@@ -392,7 +382,6 @@ namespace EnemyAbilities.Abilities.XiConstruct
         private float waitDuration;
         private float waitTimer;
         private AbilityState abilityState;
-        private Target target;
         private Vector3 rotationAxis;
         private QuaternionPID angularPID;
         private VectorPID torquePID;
@@ -430,27 +419,44 @@ namespace EnemyAbilities.Abilities.XiConstruct
                     }
                 }
             }
-            target = characterBody.master.GetComponent<BaseAI>().customTarget;
             torquePID = characterBody.GetComponents<VectorPID>().Where(pid => pid.customName == "torquePID").FirstOrDefault();
             angularPID = characterBody.GetComponent<QuaternionPID>();
-            torquePID.ResetPID();
-            angularPID.ResetPID();
-            torquePID.enabled = false;
-            angularPID.enabled = false;
+            if (torquePID != null)
+            {
+                torquePID.ResetPID();
+                torquePID.enabled = false;
+            }
+            if (angularPID != null)
+            {
+                angularPID.ResetPID();
+                angularPID.enabled = false;
+            }
         }
         public override void OnExit()
         {
             base.OnExit();
-            UnityEngine.Object.Destroy(utilController.eyeProjectile);
-            utilController.recalled = false;
-            utilController.eyeProjectile = null;
+            if (utilController != null)
+            {
+                if (utilController.eyeProjectile != null)
+                {
+                    UnityEngine.Object.Destroy(utilController.eyeProjectile);
+                    utilController.eyeProjectile = null;
+                }
+                utilController.recalled = false;
+            }
             if (healthComponent != null && healthComponent.health > 0)
             {
                 ToggleEyeVisual(true);
             }
             ToggleHurtBoxes(true);
-            torquePID.enabled = true;
-            angularPID.enabled = true;
+            if (torquePID != null)
+            {
+                torquePID.enabled = true;
+            }
+            if (angularPID != null)
+            {
+                angularPID.enabled = true;
+            }
             PlayAnimation("Gesture, Additive", "TerminateLaser", "Laser.playbackRate", 1f);
         }
         public override void FixedUpdate()
@@ -487,20 +493,20 @@ namespace EnemyAbilities.Abilities.XiConstruct
                 if (utilController != null && utilController.eyeProjectile != null)
                 {
                     waitTimer += Time.fixedDeltaTime;
+                    if (waitTimer > waitDuration)
+                    {
+                        StartRecall();
+                    }
+                    if (utilController.eyeProjectile.transform == null || characterBody == null)
+                    {
+                        outer.SetNextStateToMain();
+                        return;
+                    }
+                    if (Vector3.Distance(utilController.eyeProjectile.transform.position, characterBody.transform.position) > 150f)
+                    {
+                        StartRecall();
+                    }
                 }
-                if (waitTimer > waitDuration)
-                {
-                    StartRecall();
-                }
-                if (utilController.eyeProjectile == null || utilController.eyeProjectile.transform == null || characterBody == null)
-                {
-                    return;
-                }
-                if (Vector3.Distance(utilController.eyeProjectile.transform.position, characterBody.transform.position) > 150f)
-                {
-                    StartRecall();
-                }
-                //need a case for if it gets out of bounds?
             }
             if (abilityState == AbilityState.Recall)
             {
@@ -512,7 +518,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
         }
         public void StartRecall()
         {
-            if (utilController.eyeProjectile != null)
+            if (utilController != null && utilController.eyeProjectile != null)
             {
                 ProjectileDetonateOnImpact detonate = utilController.eyeProjectile.GetComponent<ProjectileDetonateOnImpact>();
                 if (detonate != null)
@@ -619,8 +625,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
         }
         public void FixedUpdate()
         {
-            //ownerHealthComponent.health = healthComponent.health;
-            if (healthComponent.health <= 0)
+            if (healthComponent != null && healthComponent.health <= 0)
             {
                 //big explosion!!!
                 EffectManager.SpawnEffect(explosionEffect, new EffectData { scale = 10f, origin = this.transform.position }, true);
@@ -631,10 +636,10 @@ namespace EnemyAbilities.Abilities.XiConstruct
                 retractTimer += Time.fixedDeltaTime;
                 if (projectileRigidbody == null)
                 {
-                    projectileRigidbody = utilController.eyeProjectile.GetComponent<Rigidbody>();
+                    projectileRigidbody = GetComponent<Rigidbody>();
                     projectileRigidbody.useGravity = false;
-                    ProjectileSimple controller = utilController.eyeProjectile.GetComponent<ProjectileSimple>();
-                    controller.desiredForwardSpeed = 0f;
+                    ProjectileSimple simple = GetComponent<ProjectileSimple>();
+                    simple.desiredForwardSpeed = 0f;
                 }
                 Vector3 projectilePos = projectileRigidbody.position;
                 Vector3 ownerPos = ownerBody.transform.position;
@@ -645,7 +650,10 @@ namespace EnemyAbilities.Abilities.XiConstruct
                 }
                 else
                 {
-                    utilController.recalled = true;
+                    if (utilController != null)
+                    {
+                        utilController.recalled = true;
+                    }
                 }
             }
         }
@@ -694,19 +702,17 @@ namespace EnemyAbilities.Abilities.XiConstruct
             if (targetCheckTimer < 0)
             {
                 targetCheckTimer += targetCheckInterval;
-                if (body == null || body.inputBank == null)
+                if (body == null || body.inputBank == null || body.healthComponent == null || !body.healthComponent.alive)
                 {
                     return;
                 }
                 Ray aimRay = body.inputBank.GetAimRay();
-                targetCheckTimer += targetCheckInterval;
                 BullseyeSearch search = new BullseyeSearch();
                 search.viewer = body;
                 search.filterByDistinctEntity = true;
                 search.filterByLoS = true;
                 search.maxDistanceFilter = Mathf.Infinity;
                 search.minDistanceFilter = 0f;
-                search.maxAngleFilter = 360f;
                 search.searchOrigin = aimRay.origin;
                 search.searchDirection = aimRay.direction;
                 search.maxAngleFilter = 360f;

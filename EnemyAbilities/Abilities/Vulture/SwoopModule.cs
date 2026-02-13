@@ -25,24 +25,33 @@ namespace EnemyAbilities.Abilities.Vulture
             controller.manualTrackingMaxDistance = 100f;
             controller.manualTrackingMaxAngle = 360f;
             CreateSkill();
-            CharacterBody.onBodyStartGlobal += AddMeleeHitBox;
+            AddMeleeHitBox();
         }
-        private void AddMeleeHitBox(CharacterBody characterBody)
+        private void AddMeleeHitBox()
         {
-            if (characterBody == null || characterBody.master == null)
+            ModelLocator modelLocator = bodyPrefab.GetComponent<ModelLocator>();
+            if (modelLocator != null && modelLocator.modelTransform != null)
             {
-                return;
+                CreateHitBoxAndGroup(modelLocator.modelTransform, "VultureMelee", new Vector3(0f, -2f, 0f), new Vector3(30f, 30f, 30f) * (vultureSwoopHitBoxScale.Value / 100f));
             }
-            if (characterBody.master.bodyPrefab != null && characterBody.master.bodyPrefab == bodyPrefab)
-            {
-                GameObject vultureBodyObject = characterBody.gameObject;
+        }
+        private void CreateHitBoxAndGroup(Transform modelTransform, string hitBoxGroupName, Vector3 localPosition, Vector3 localScale, string hitBoxGroupObjName = "", string hitBoxObjName = "")
+        {
+            hitBoxGroupObjName = hitBoxGroupObjName == "" ? hitBoxGroupName : hitBoxGroupObjName;
+            hitBoxObjName = hitBoxObjName == "" ? hitBoxGroupName : hitBoxObjName;
 
-                Transform modelTransform = characterBody.modelLocator.modelTransform;
-                var model = modelTransform.gameObject;
+            GameObject hitBoxObj = new GameObject(hitBoxGroupObjName);
+            hitBoxObj.transform.SetParent(modelTransform);
+            hitBoxObj.transform.localPosition = localPosition;
+            hitBoxObj.transform.localScale = localScale;
+            hitBoxObj.transform.localRotation = Quaternion.identity;
 
-                //not sure why it needs to be so beeg
-                CreateHitBoxAndGroup(modelTransform, "VultureMelee", new Vector3(0f, -2f, 0f), new Vector3(30f, 30f, 30f) * (vultureSwoopHitBoxScale.Value / 100f));
-            }
+            HitBox hitBox = hitBoxObj.AddComponent<HitBox>();
+            hitBox.gameObject.name = hitBoxObjName;
+
+            HitBoxGroup hitBoxGroup = modelTransform.gameObject.AddComponent<HitBoxGroup>();
+            hitBoxGroup.groupName = hitBoxGroupName;
+            hitBoxGroup.hitBoxes = new HitBox[] { hitBox };
         }
         public void CreateSkill()
         {
@@ -81,24 +90,6 @@ namespace EnemyAbilities.Abilities.Vulture
             masterPrefab.ReorderSkillDrivers(useSecondary, 2);
 
             ContentAddition.AddEntityState<Swoop>(out _);
-        }
-        private void CreateHitBoxAndGroup(Transform modelTransform, string hitBoxGroupName, Vector3 localPosition, Vector3 localScale, string hitBoxGroupObjName = "", string hitBoxObjName = "")
-        {
-            hitBoxGroupObjName = hitBoxGroupObjName == "" ? hitBoxGroupName : hitBoxGroupObjName;
-            hitBoxObjName = hitBoxObjName == "" ? hitBoxGroupName : hitBoxObjName;
-
-            GameObject hitBoxObj = new GameObject(hitBoxGroupObjName);
-            hitBoxObj.transform.SetParent(modelTransform);
-            hitBoxObj.transform.localPosition = localPosition;
-            hitBoxObj.transform.localScale = localScale;
-            hitBoxObj.transform.localRotation = Quaternion.identity;
-
-            HitBox hitBox = hitBoxObj.AddComponent<HitBox>();
-            hitBox.gameObject.name = hitBoxObjName;
-
-            HitBoxGroup hitBoxGroup = modelTransform.gameObject.AddComponent<HitBoxGroup>();
-            hitBoxGroup.groupName = hitBoxGroupName;
-            hitBoxGroup.hitBoxes = new HitBox[] { hitBox };
         }
     }
     public class SwoopSkillDef : SkillDef
@@ -185,12 +176,14 @@ namespace EnemyAbilities.Abilities.Vulture
             if (characterMotor != null && characterMotor.isGrounded)
             {
                 outer.SetNextStateToMain();
+                return;
             }
             if (base.fixedAge > duration)
             {
-                if (ai.currentEnemy.characterBody.transform.position.y < characterBody.transform.position.y)
+                if (ai.currentEnemy.characterBody.transform.position.y > characterBody.transform.position.y)
                 {
                     outer.SetNextStateToMain();
+                    return;
                 }
                 success = true;
                 outer.SetNextState(new Swoop());
@@ -254,6 +247,11 @@ namespace EnemyAbilities.Abilities.Vulture
         public override void OnEnter()
         {
             base.OnEnter();
+            DisableCollision();
+            if (characterMotor != null)
+            {
+                characterMotor.onMovementHit += OnMovementHit;
+            }
             nextSwingTime = firstSwingDelay;
             if (characterMotor != null && characterMotor.isGrounded)
             {
@@ -266,13 +264,8 @@ namespace EnemyAbilities.Abilities.Vulture
             {
                 trackedTarget = targetController.StartPredictTarget(OnTargetLost);
             }
-            if (characterMotor != null)
-            {
-                characterMotor.onMovementHit += OnMovementHit;
-            }
             startLeftFoot = UnityEngine.Random.RandomRangeInt(0, 2) == 1;
 
-            DisableCollision();
 
             attack = new OverlapAttack();
             attack.attacker = base.gameObject;

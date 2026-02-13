@@ -12,10 +12,6 @@ using static EnemyAbilities.PluginConfig;
 
 namespace EnemyAbilities.Abilities.ClayBruiser
 {
-
-    //issues: deviation means at tight angles sometimes 4/5 of the grenades will hit a surface whilst flying
-    //need a visual cue/animation, maybe firing tar blast directly up?
-
     //made this before I learnt Trajectory exists :(((
 
     [EnemyAbilities.ModuleInfo("Cluster Grenade", "Gives Clay Templars a new utility:\n- Cluster Grenade: Used when a Clay Templar has seen a player recently but doesn't have line of sight, fires a barrage of five Tar Grenades in an arc towards the player.", "Clay Templar", true)]
@@ -145,7 +141,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
         {
             base.OnEnter();
             grenadeFireInterval = baseGrenadeFireInterval / attackSpeedStat;
-            duration = baseGrenadeFireInterval * grenadeCount;
+            duration = grenadeFireInterval * grenadeCount;
             controller = characterBody.gameObject.GetComponent<ClayBruiserUtilityController>();
         }
         public override void OnExit()
@@ -161,8 +157,11 @@ namespace EnemyAbilities.Abilities.ClayBruiser
             {
                 Util.PlaySound("Play_clayBruiser_attack2_shoot", characterBody.gameObject);
                 grenadeFireTimer += grenadeFireInterval;
-
-                //could maybe do an "updatearc" for the controller to avoid this?
+                if (controller.ai == null || controller.ai.currentEnemy == null || controller.ai.currentEnemy.characterBody == null)
+                {
+                    outer.SetNextStateToMain();
+                    return;
+                }
                 Vector3 velocity = controller.FindBallisticVelocity(characterBody.aimOrigin, controller.ai.currentEnemy.characterBody.transform.position, controller.currentLowestArcTime);
 
                 Vector3 direction = velocity.normalized;
@@ -215,8 +214,8 @@ namespace EnemyAbilities.Abilities.ClayBruiser
             if (bruiserBody != null && bruiserBody.master != null)
             {
                 ai = bruiserBody.master.GetComponent<BaseAI>();
+                skillLocator = bruiserBody.skillLocator;
             }
-            skillLocator = bruiserBody.skillLocator;
         }
         public void FixedUpdate()
         {
@@ -267,7 +266,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
             Vector3 startVelocity = FindBallisticVelocity(startPosition, targetPosition, time);
             launchVelocty = startVelocity;
 
-            float simulationInterval = 0.5f;
+            float simulationInterval = 0.25f;
             float simulationTime = 0f;
 
             while (simulationTime < time)

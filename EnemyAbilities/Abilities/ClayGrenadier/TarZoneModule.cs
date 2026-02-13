@@ -81,7 +81,6 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 }
             };
         }
-
         private void UpdateMaxHealth()
         {
             CharacterBody grenadier = DLC1Content.BodyPrefabs.ClayGrenadierBody;
@@ -91,13 +90,12 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 grenadier.levelMaxHealth = 420f;
             }
         }
-
         private void ExplodeBlobOnDeath(DamageReport damageReport)
         {
             if (damageReport != null)
             {
                 CharacterBody victimBody = damageReport.victimBody;
-                if (victimBody.bodyIndex == BodyCatalog.FindBodyIndex(DLC1Content.BodyPrefabs.ClayGrenadierBody))
+                if (victimBody != null && victimBody.bodyIndex == BodyCatalog.FindBodyIndex(DLC1Content.BodyPrefabs.ClayGrenadierBody))
                 {
                     ClayGrenadierChargeController charge = victimBody.gameObject.GetComponent<ClayGrenadierChargeController>();
                     if (charge != null && charge.charging == true)
@@ -107,13 +105,12 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 }
             }
         }
-
         private void ChargeTarBlob(DamageReport damageReport)
         {
             if (damageReport != null)
             {
                 CharacterBody victimBody = damageReport.victimBody;
-                if (victimBody.bodyIndex == BodyCatalog.FindBodyIndex(DLC1Content.BodyPrefabs.ClayGrenadierBody))
+                if (victimBody != null && victimBody.bodyIndex == BodyCatalog.FindBodyIndex(DLC1Content.BodyPrefabs.ClayGrenadierBody))
                 {
                     ClayGrenadierChargeController charge = victimBody.gameObject.GetComponent<ClayGrenadierChargeController>();
                     if (charge != null && charge.charging == true && damageReport.damageDealt > 0f)
@@ -129,7 +126,6 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 }
             }
         }
-
         public void CreateSkill()
         {
             EntityStateMachine weaponESM = bodyPrefab.AddComponent<EntityStateMachine>();
@@ -222,8 +218,6 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
         }
         public void ModifyBigTarBallPrefab()
         {
-
-
             ProjectileController controller = bigTarBallProjectile.GetComponent<ProjectileController>();
             controller.ghostPrefab = bigTarBallGhost;
 
@@ -242,7 +236,6 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             impact.useChildRotation = true;
             impact.destroyOnWorld = false;
             impact.destroyOnEnemy = false;
-            impact.destroyOnWorld = false;
             impact.impactOnWorld = true;
             impact.timerAfterImpact = true;
             impact.lifetimeAfterImpact = apothecaryDelugeFuseTime.Value;
@@ -400,7 +393,10 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 teamAreaIndicator.transform.localScale = Vector3.one * radius;
                 teamAreaIndicator.teamFilter = filter;
                 ProjectileController controller = GetComponent<ProjectileController>();
-                controller.ghost.transform.localScale = Vector3.one * (radius / 2f);
+                if (controller != null && controller.ghost != null)
+                {
+                    controller.ghost.transform.localScale = Vector3.one * (radius / 2f);
+                }
                 AttachVisualEffect();
             }
             private void AttachVisualEffect()
@@ -444,10 +440,12 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             }
             public void DestroyVisualEffect()
             {
-                Destroy(tarBubblesInstance);
-                Destroy(_emh_bubblesInstance);
-                tarBubblesInstance = null;
-                _emh_bubblesInstance = null;
+                if (_emh_bubblesInstance != null && tarBubblesInstance != null)
+                {
+                    EffectManager.ReturnToPoolOrDestroyInstance(_emh_bubblesInstance, ref tarBubblesInstance);
+                    tarBubblesInstance = null;
+                    _emh_bubblesInstance = null;
+                }
             }
             public void OnDestroy()
             {
@@ -471,6 +469,8 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             }
             public void FireAttack()
             {
+                ProjectileController controller = GetComponent<ProjectileController>();
+                ProjectileDamage damageComponent = GetComponent<ProjectileDamage>();
                 SphereSearch sphereSearch = new SphereSearch();
                 sphereSearch.radius = radius;
                 sphereSearch.origin = gameObject.transform.position;
@@ -494,8 +494,6 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                     {
                         continue;
                     }
-                    ProjectileController controller = GetComponent<ProjectileController>();
-                    ProjectileDamage damageComponent = GetComponent<ProjectileDamage>();
                     GameObject owner = controller.owner;
                     DamageInfo damageInfo = new DamageInfo();
                     damageInfo.inflictor = this.gameObject;
@@ -540,8 +538,11 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 if (percentageHealthTaken < maxPercentageHealthTaken)
                 {
                     percentageHealthTaken += damagePercentage;
-                    Vector3 origin = controller.transform.position;
-                    EffectManager.SpawnEffect(chargeEffect, new EffectData { origin = origin, rotation = Util.QuaternionSafeLookRotation(UnityEngine.Random.onUnitSphere), scale = 2 + damagePercentage * 4 }, true);
+                    if (controller != null)
+                    {
+                        Vector3 origin = controller.transform.position;
+                        EffectManager.SpawnEffect(chargeEffect, new EffectData { origin = origin, rotation = Util.QuaternionSafeLookRotation(UnityEngine.Random.onUnitSphere), scale = 2 + damagePercentage * 4 }, true);
+                    }
                 }
             }
             public void ResetInstances()
@@ -552,9 +553,9 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             {
                 if (!charging)
                 {
-                    charging = true;
                     if (NetworkServer.active)
                     {
+                        charging = true;
                         FireProjectileInfo info = new FireProjectileInfo
                         {
                             projectilePrefab = bigTarBallProjectile,
@@ -593,6 +594,10 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             public void DetonateOnKill(DamageReport report)
             {
                 CharacterBody attackerBody = report.attackerBody;
+                if (bigTarBlob == null)
+                {
+                    return;
+                }
                 if (attackerBody != null && attackerBody.teamComponent != null)
                 {
                     float radius = apothecaryDelugeMinRadius.Value + percentageCharge * (apothecaryDelugeMaxRadius.Value - apothecaryDelugeMinRadius.Value);
@@ -627,7 +632,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             }
             public void StopChargingAndLaunchProjectile(Vector3 velocity)
             {
-                if (charging && tarBallInstance != null)
+                if (charging && tarBallInstance != null && body != null)
                 {
                     charging = false;
                     impact.enabled = true;
@@ -639,7 +644,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                     float damage = apothecaryDelugeMinDamage.Value / 100f + (percentageCharge * (apothecaryDelugeMaxDamage.Value / 100f - apothecaryDelugeMinDamage.Value / 100f));
 
                     impact.blastRadius = radius;
-                    damageComponent.damage = damage;
+                    damageComponent.damage = damage * body.damage;
                     damageComponent.force = 1000f + 4000f * percentageCharge;
 
                     tarBallInstance.GetComponent<Rigidbody>().velocity = velocity;

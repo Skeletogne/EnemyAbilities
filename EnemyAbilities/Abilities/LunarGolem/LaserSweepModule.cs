@@ -77,7 +77,6 @@ namespace EnemyAbilities.Abilities.LunarGolem
             lineRenderer.endWidth = 0.8f;
             lineRenderer.startColor = Color.red;
             lineRenderer.endColor = Color.red;
-            Material materialClone = new Material(Addressables.LoadAssetAsync<Material>(RoR2_DLC1_MajorAndMinorConstruct.matMajorConstructBeam_mat).WaitForCompletion());
         }
         public void ModifyFireSegmentPrefab()
         {
@@ -128,6 +127,10 @@ namespace EnemyAbilities.Abilities.LunarGolem
                 sweepDuration = baseSweepDuration / attackSpeedStat;
                 windupDuration = baseWindupDuration / attackSpeedStat;
                 soundID = Util.PlayAttackSpeedSound("Play_golem_laser_charge", characterBody.gameObject, attackSpeedStat);
+                if (characterBody.master == null)
+                {
+                    return;
+                }
                 baseAI = characterBody.master.GetComponent<BaseAI>();
                 if (activatorSkillSlot != null)
                 {
@@ -137,11 +140,11 @@ namespace EnemyAbilities.Abilities.LunarGolem
                     {
                         cannonIndex = activatorSkillSlot.stock % 4;
                     }
-                    if (maxCharges == 2)
+                    else if (maxCharges == 2)
                     {
                         cannonIndex = activatorSkillSlot.stock % 2;
                     }
-                    if (maxCharges == 1)
+                    else if (maxCharges == 1)
                     {
                         cannonIndex = UnityEngine.Random.RandomRangeInt(0, 4);
                     }
@@ -447,7 +450,6 @@ namespace EnemyAbilities.Abilities.LunarGolem
             }
             public void RemovePoint(int pointIndex) 
             {
-                Log.Debug($"KABOOM!");
                 EffectManager.SpawnEffect(explosionEffect, new EffectData { origin = trailPoints[pointIndex].position, scale = 8f }, true);
                 if (NetworkServer.active)
                 {
@@ -481,14 +483,14 @@ namespace EnemyAbilities.Abilities.LunarGolem
                         }
                         else
                         {
-                            Destroy(gameObject);
+                            Destroy(segmentObject);
                         }
 
                     }
                 }
                 trailPoints.RemoveAt(pointIndex);
             }
-            public void Destroy()
+            public void DestroyTrail()
             {
                 Destroy(this.gameObject);
             }

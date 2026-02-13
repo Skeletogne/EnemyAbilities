@@ -150,9 +150,9 @@ namespace EnemyAbilities.Abilities.FlyingVermin
             {
                 Vector3 newPosition = GetIndicatorPos();
                 indicatorInstance.transform.position = newPosition;
+                float scaleModifier = 0.1f + Mathf.Sqrt(0.9f * Mathf.Clamp01(base.fixedAge / warningDuration));
+                indicatorInstance.transform.localScale = Vector3.one * radius * scaleModifier;
             }
-            float scaleModifier = 0.1f + Mathf.Sqrt(0.9f * Mathf.Clamp01(base.fixedAge / warningDuration));
-            indicatorInstance.transform.localScale = Vector3.one * radius * scaleModifier;
         }
         public Vector3 GetIndicatorPos()
         {
@@ -274,7 +274,7 @@ namespace EnemyAbilities.Abilities.FlyingVermin
                 if (groundInRange)
                 {
                     Vector3 origin = hit.point;
-                    TeamMask teamMask = TeamMask.GetEnemyTeams(TeamIndex.Monster);
+                    TeamMask teamMask = TeamMask.GetEnemyTeams(pestBody.teamComponent.teamIndex);
                     SphereSearch sphereSearch = new SphereSearch();
                     sphereSearch.origin = origin;
                     sphereSearch.radius = radius;

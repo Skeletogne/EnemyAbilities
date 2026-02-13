@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using EntityStates;
+﻿using EntityStates;
 using RoR2.CharacterAI;
 using R2API;
 using RoR2;
@@ -9,24 +6,17 @@ using RoR2.Skills;
 using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using System.Runtime.CompilerServices;
 using RoR2.Projectile;
-using HG;
 using UnityEngine.Networking;
 using RoR2.Audio;
 using Rewired.ComponentControls.Effects;
 using System.Linq;
-using RiskOfOptions.Resources;
-using UnityEngine.UIElements;
 using static R2API.DamageAPI;
 using static EnemyAbilities.PluginConfig;
-using BepInEx.Configuration;
 
 namespace EnemyAbilities.Abilities.Bison
 {
     [EnemyAbilities.ModuleInfo("Unearth Boulder", "Gives Bison a new Secondary\n- Unearth Boulder: The Bison Unearths a large boulders nearby. These do nothing until hit with a melee attack, at which point they launch towards a nearby target, dealing high damage on impact. Activating this module causes Charge to activate from a longer range, and changes the max health damage needed to stun a Bison from 15% -> 30% to match Beetle Guards and Stone Golems.", "Bighorn Bison", true)]
-
-    //Bison rocks can be a little buggy, sometimes rolling on the floor. unsure why this is the case at the moment
 
     public class RockModule : BaseModule
     {
@@ -51,27 +41,28 @@ namespace EnemyAbilities.Abilities.Bison
         private void TakeDamageProcess(On.RoR2.HealthComponent.orig_TakeDamageProcess orig, HealthComponent self, DamageInfo damageInfo)
         {
             orig(self, damageInfo);
-            if (self != null && damageInfo != null && damageInfo.attacker != null)
+            ProjectileBisonRock component = self.gameObject.GetComponent<ProjectileBisonRock>();
+            if (component != null)
             {
-                CharacterBody victimBody = self.body;
-                CharacterBody attackerBody = damageInfo.attacker.GetComponent<CharacterBody>();
-                if (attackerBody != null && victimBody != null)
+                if (self != null && damageInfo != null && damageInfo.attacker != null)
                 {
-                    bool launchValid = false;
-                    if (attackerBody.bodyIndex == RoR2Content.BodyPrefabs.BisonBody.bodyIndex && !damageInfo.damageType.HasModdedDamageType(rockDamageType))
+                    CharacterBody victimBody = self.body;
+                    CharacterBody attackerBody = damageInfo.attacker.GetComponent<CharacterBody>();
+                    if (attackerBody != null && victimBody != null)
                     {
-                        launchValid = true;
-                    }
-                    //can also be moved by sufficiently strong attacks
-                    if (damageInfo.damage >= attackerBody.damage * 10f)
-                    {
-                        launchValid = true;
-                    }
-                    if (launchValid)
-                    {
-                        ProjectileBisonRock component = self.gameObject.GetComponent<ProjectileBisonRock>();
-                        if (component != null)
+                        bool launchValid = false;
+                        if (attackerBody.bodyIndex == RoR2Content.BodyPrefabs.BisonBody.bodyIndex && !damageInfo.damageType.HasModdedDamageType(rockDamageType))
                         {
+                            launchValid = true;
+                        }
+                        //can also be moved by sufficiently strong attacks
+                        if (damageInfo.damage >= attackerBody.damage * 10f)
+                        {
+                            launchValid = true;
+                        }
+                        if (launchValid)
+                        {
+
                             component.TryLaunch(attackerBody);
                         }
                     }
@@ -245,7 +236,6 @@ namespace EnemyAbilities.Abilities.Bison
             base.OnEnter();
             duration = baseDuration / attackSpeedStat;
             Vector3 bisonPosition = characterBody.transform.position;
-            Vector3 bisonPositionNoY = new Vector3(bisonPosition.x, 0f, bisonPosition.z);
             Vector3 forward = characterBody.transform.forward;
             forward.y = 0f;
             forward = forward.normalized;
@@ -256,8 +246,9 @@ namespace EnemyAbilities.Abilities.Bison
                 if (baseAI != null && baseAI.currentEnemy != null && baseAI.currentEnemy.characterBody != null)
                 {
                     Vector3 targetPosition = baseAI.currentEnemy.characterBody.transform.position;
-                    Vector3 targetPositionNoY = new Vector3(targetPosition.x, 0f, targetPosition.z);
-                    forward = (targetPosition - bisonPosition).normalized;
+                    Vector3 direction = targetPosition - bisonPosition;
+                    direction.y = 0f;
+                    forward = direction.normalized;
                 }
             }
             for (int i = 0; i < rockSpawnCount; i++)
@@ -343,6 +334,10 @@ namespace EnemyAbilities.Abilities.Bison
         }
         public void TryLaunch(CharacterBody attackerBody)
         {
+            if (rockState == RockState.JustSpawned)
+            {
+                return;
+            }
             if (mostRecentLauncher == attackerBody)
             {
                 return;
@@ -489,6 +484,7 @@ namespace EnemyAbilities.Abilities.Bison
                 rockState = RockState.Embedded;
                 return;
             }
+            Collider collider = impactInfo.collider;
             if (impactInfo.collider != null)
             {
                 HurtBox hurtBox = impactInfo.collider.GetComponent<HurtBox>();
@@ -496,10 +492,10 @@ namespace EnemyAbilities.Abilities.Bison
                 {
                     return;
                 }
-            }
-            if (impactInfo.collider.GetComponentInParent<ProjectileBisonRock>() != null)
-            {
-                return;
+                if (impactInfo.collider.GetComponentInParent<ProjectileBisonRock>() != null)
+                {
+                    return;
+                }
             }
             if (!alive)
             {
@@ -513,7 +509,7 @@ namespace EnemyAbilities.Abilities.Bison
             {
                 return;
             }
-            Collider collider = impactInfo.collider;
+
             impactNormal = impactInfo.estimatedImpactNormal;
             if (!collider)
             {

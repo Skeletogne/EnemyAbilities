@@ -70,6 +70,18 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 
 # Changelog
 
+## 1.5.1
+- LOTSA BUG FIXES!
+- Solved a whole pile of NREs
+- Solus Transporters should no longer permanently lose collision after using Fling.
+- Bison Rocks should no longer get stuck in a weird rolling state. They're still a bit buggy tho lmao
+- Clay Templar grenades should clip terrain mid-flight a little less often.
+- Fixed some networking issues with Clay Apothecary tar blobs.
+- Lunar Golem fire trails should no longer randomly disappear before exploding.
+- Removed "KABOOM!" log spam from Laser Sweep. Oops.
+- Xi Constructs should no longer rarely get stuck in their recall state indefinitely.
+- Vultures should no longer commit to swoop if their target is above them.
+
 ## 1.5.0
 - Gave Lunar Golems a new ability: Laser Sweep!
 - Fixed an NRE related to tractor-beamed enemies getting killed during the fling wind-up.

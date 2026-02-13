@@ -12,9 +12,6 @@ using static EnemyAbilities.PluginConfig;
 namespace EnemyAbilities.Abilities.SolusProspector
 {
 
-    //issues:
-    //if it loses los with it's target, it will just pop up where it burrowed
-
     [EnemyAbilities.ModuleInfo("Drill Burrow", "Gives Solus Prospectors a new Secondary ability: \n- Drill Burrow: Allows the Prospector to disappear underground to remain hidden for 1 second, before burrowing up beneath a nearby target.", "Solus Prospector", true)]
     public class DrillBurrowModule : BaseModule
     {
@@ -162,7 +159,11 @@ namespace EnemyAbilities.Abilities.SolusProspector
             }
             else if (currentState == DrillBurrowState.Burrowed)
             {
-                Vector3 targetPosition = target.healthComponent.body.transform.position;
+                Vector3 targetPosition = characterBody.footPosition;
+                if (target != null && target.healthComponent != null && target.healthComponent.body != null)
+                {
+                    targetPosition = target.healthComponent.body.transform.position;
+                }
                 Vector3 startPosition = startPos;
                 if (targetPosition.y > startPos.y)
                 {
@@ -172,7 +173,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
                 {
                     targetPosition.y = startPosition.y;
                 }
-                Vector3 raycastStart = Vector3.Lerp(startPosition, targetPosition, Mathf.Clamp01(stopwatch - windupDuration / burrowDuration));
+                Vector3 raycastStart = Vector3.Lerp(startPosition, targetPosition, Mathf.Clamp01((stopwatch - windupDuration) / burrowDuration));
                 bool success = Physics.Raycast(raycastStart, Vector3.down, out RaycastHit hitInfo, 1000f, LayerIndex.world.mask);
                 if (success)
                 {
@@ -221,7 +222,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
                     inputBank.aimDirection = Vector3.up;
                 }
             }
-            if (stopwatch > totalDuration && base.characterMotor.isGrounded)
+            if ((stopwatch > totalDuration && base.characterMotor.isGrounded) || stopwatch > totalDuration + 3f)
             {
                 outer.SetNextStateToMain();
             }
@@ -250,7 +251,6 @@ namespace EnemyAbilities.Abilities.SolusProspector
             {
                 characterBody.AddBuff(RoR2Content.Buffs.HiddenInvincibility.buffIndex);
             }
-            originalLayerIndex = base.gameObject.layer;
             base.gameObject.layer = LayerIndex.GetAppropriateFakeLayerForTeam(teamComponent.teamIndex).intVal;
             characterMotor.Motor.RebuildCollidableLayers();
             if (modelLocator != null && modelLocator.modelTransform != null)
@@ -267,7 +267,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
                 //probably need a better sound cue than this?
                 Util.PlaySound("Play_GildedElite_Pillar_Spawn", target.healthComponent.body.gameObject);
             }
-            if (Physics.Raycast(targetPos, Vector3.down, out RaycastHit hit, 1000f, LayerIndex.CommonMasks.bullet))
+            if (Physics.Raycast(targetPos, Vector3.down, out RaycastHit hit, 1000f, LayerIndex.world.mask))
             {
                 targetPos = hit.point;
             }

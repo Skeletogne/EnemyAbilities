@@ -324,6 +324,10 @@ namespace EnemyAbilities.Abilities.IronHauler
             {
                 return;
             }
+            if (characterBody.healthComponent == null || characterBody.healthComponent.alive == false)
+            {
+                return;
+            }
             driverController = characterBody.gameObject.GetComponent<IronHaulerDriverController>();
             if (driverController == null)
             {
@@ -334,7 +338,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             {
                 return;
             }
-            if (ai.customTarget == null && ai.customTarget.characterBody == null)
+            if (ai.customTarget == null || ai.customTarget.characterBody == null)
             {
                 return;
             }
@@ -475,12 +479,9 @@ namespace EnemyAbilities.Abilities.IronHauler
                 if (collider != null)
                 {
                     collider.enabled = enable;
-                    if (collidersDisabled == !enable)
-                    {
-                        collidersDisabled = enable;
-                    }
                 }
             }
+            collidersDisabled = !enable;
         }
         public override void OnExit()
         {
@@ -511,12 +512,15 @@ namespace EnemyAbilities.Abilities.IronHauler
                 rigidbody.maxAngularVelocity = savedMaxAngularVelocity;
                 rigidbody.angularDrag = savedAngularDrag;
             }
-            ai.aimVectorMaxSpeed = 60f;
+            if (ai != null)
+            {
+                ai.aimVectorMaxSpeed = 60f;
+            }
         }
         public override void FixedUpdate()
         {
             base.FixedUpdate();
-            if (targetBody == null || targetBody.healthComponent == null || !targetBody.healthComponent.alive || ai.customTarget == null || cargoBody == null) //just to be on the safe side
+            if (ai == null || ai.customTarget == null || targetBody == null || targetBody.healthComponent == null || !targetBody.healthComponent.alive || cargoBody == null) //just to be on the safe side
             {
                 outer.SetNextStateToMain();
                 return;
@@ -729,10 +733,10 @@ namespace EnemyAbilities.Abilities.IronHauler
             pseudoMotor = GetComponent<PseudoCharacterMotor>();
             childMonsterController = GetComponent<ChildMonsterController>();
             VectorPID[] pids = GetComponents<VectorPID>();
-            if (motor != null)
+            if (rigid != null)
             {
+                drag = rigid.drag;
             }
-
             if (pids != null && pids.Length > 0)
             {
                 forcePID = pids.Where(pid => pid.customName == "Force PID").FirstOrDefault();
@@ -902,12 +906,10 @@ namespace EnemyAbilities.Abilities.IronHauler
             {
                 return;
             }
-            if (body.healthComponent == null && body.healthComponent.alive == false)
+            if (body.healthComponent == null || body.healthComponent.alive == false)
             {
                 return;
             }
-
-
             if (blastAttack != null)
             {
                 firedBlast = true;
@@ -1108,12 +1110,11 @@ namespace EnemyAbilities.Abilities.IronHauler
             if (body != null && body.modelLocator != null && body.modelLocator.modelTransform != null)
             {
                 childLocator = body.modelLocator.modelTransform.GetComponent<ChildLocator>();
+                muzzleTransform = childLocator.FindChild("Muzzle");
+                tetherVfxOrigin = body.healthComponent.gameObject.AddComponent<TetherVfxOrigin>();
+                tetherVfxOrigin.tetherPrefab = TractorBeamModule.tetherPrefab;
+                tetherVfxOrigin.transform = muzzleTransform;
             }
-            muzzleTransform = childLocator.FindChild("Muzzle");
-            tetherVfxOrigin = body.healthComponent.gameObject.AddComponent<TetherVfxOrigin>();
-            tetherVfxOrigin.tetherPrefab = TractorBeamModule.tetherPrefab;
-            tetherVfxOrigin.transform = muzzleTransform;
-
         }
         public void Start()
         {
@@ -1137,7 +1138,7 @@ namespace EnemyAbilities.Abilities.IronHauler
                 return;
             }
             targetCheckTimer -= Time.fixedDeltaTime;
-            if (ai.customTarget.gameObject == null || !ai.customTarget.healthComponent.alive)
+            if (ai.customTarget == null || ai.customTarget.gameObject == null || ai.customTarget.healthComponent == null || !ai.customTarget.healthComponent.alive)
             {
                 targetCheckTimer = targetCheckInterval;
                 TryFindCustomTarget();

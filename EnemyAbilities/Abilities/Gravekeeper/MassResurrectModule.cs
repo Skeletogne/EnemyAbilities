@@ -295,9 +295,10 @@ namespace EnemyAbilities.Abilities.Gravekeeper
                 prepDuration = basePrepDuration / attackSpeedStat;
                 fireDuration = baseFireDuration / attackSpeedStat;
                 recoveryDuration = baseRecoveryDuration / attackSpeedStat;
-                if (resurrectController.gravestoneList.Count == 0)
+                int gravestoneCount = resurrectController.gravestoneList.Count;
+                if (gravestoneCount <= 1)
                 {
-                    for (int i = 0; i < 2; i++)
+                    for (int i = 0; i < 2 - gravestoneCount; i++)
                     {
                         GameObject gravestoneInstance = Instantiate(MassResurrectModule.gravestonePrefab, characterBody.transform.position + new Vector3(0f, 8f, 0f), Quaternion.identity);
                         FloatingGravestoneController gravestoneController = gravestoneInstance.GetComponent<FloatingGravestoneController>();
@@ -337,7 +338,11 @@ namespace EnemyAbilities.Abilities.Gravekeeper
                 {
                     FloatingGravestoneController controller = resurrectController.gravestoneList[currentCount];
                     Vector3 projectilePosition = controller.gameObject.transform.position;
-                    Vector3 targetPosition = resurrectController.ai.currentEnemy.characterBody.transform.position;
+                    Vector3 targetPosition = GetAimRay().GetPoint(50f);
+                    if (resurrectController != null && resurrectController.ai != null && resurrectController.ai.currentEnemy != null && resurrectController.ai.currentEnemy.characterBody != null)
+                    {
+                        targetPosition = resurrectController.ai.currentEnemy.characterBody.transform.position;
+                    }
                     Vector3 direction = (targetPosition - projectilePosition).normalized;
                     Quaternion rotation = Util.QuaternionSafeLookRotation(direction + (UnityEngine.Random.insideUnitSphere * 0.05f));
                     DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Special, damageType = DamageType.Generic };
@@ -460,7 +465,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
         public List<FloatingGravestoneController> gravestoneList = new List<FloatingGravestoneController>();
         public float prepStopwatch;
         public List<BodyIndex> queuedBodyIndices = new List<BodyIndex>();
-        public List<CharacterBody> boundGhosts;
+        public List<CharacterBody> boundGhosts = new List<CharacterBody>();
         public TetherVfxOrigin tetherVfxOrigin;
         public enum GravestoneMode
         {
@@ -523,12 +528,15 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             UpdateTethers();
             if (body == null || body.healthComponent == null || body.healthComponent.alive == false)
             {
-                for (int i = boundGhosts.Count - 1; i >= 0; i--)
+                if (boundGhosts.Count > 0)
                 {
-                    CharacterBody ghostBody = boundGhosts[i];
-                    if (ghostBody != null && ghostBody.healthComponent != null)
+                    for (int i = boundGhosts.Count - 1; i >= 0; i--)
                     {
-                        ghostBody.healthComponent.Suicide();
+                        CharacterBody ghostBody = boundGhosts[i];
+                        if (ghostBody != null && ghostBody.healthComponent != null)
+                        {
+                            ghostBody.healthComponent.Suicide();
+                        }
                     }
                 }
                 return;
@@ -675,13 +683,16 @@ namespace EnemyAbilities.Abilities.Gravekeeper
         {
             projController = GetComponent<ProjectileController>();
             owner = projController.owner;
-            teamIndex = owner.GetComponent<TeamComponent>().teamIndex;
-            GravekeeperResurrectController gravestoneController = owner.GetComponent<GravekeeperResurrectController>();
-            resurrectController = gravestoneController;
-            bodyIndex = gravestoneController.queuedBodyIndices[0];
-            gravestoneController.queuedBodyIndices.RemoveAt(0);
-            stick = GetComponent<ProjectileStickOnImpact>();
-            rigid = GetComponent<Rigidbody>();
+            if (owner != null)
+            {
+                teamIndex = owner.GetComponent<TeamComponent>().teamIndex;
+                GravekeeperResurrectController gravestoneController = owner.GetComponent<GravekeeperResurrectController>();
+                resurrectController = gravestoneController;
+                bodyIndex = gravestoneController.queuedBodyIndices[0];
+                gravestoneController.queuedBodyIndices.RemoveAt(0);
+                stick = GetComponent<ProjectileStickOnImpact>();
+                rigid = GetComponent<Rigidbody>();
+            }
         }
         public void FixedUpdate()
         {
@@ -731,7 +742,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             {
                 return;
             }
-            if (resurrectController.boundGhosts.Count >= (int)grovetenderResurrectMaxGhosts.Value)
+            if (resurrectController == null || resurrectController.boundGhosts.Count >= (int)grovetenderResurrectMaxGhosts.Value)
             {
                 return;
             }
