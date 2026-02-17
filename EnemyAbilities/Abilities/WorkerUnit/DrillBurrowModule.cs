@@ -30,7 +30,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
             drillBurrowSkillDef.skillName = "WorkerUnitDrillBurrow";
             drillBurrowSkillDef.activationStateMachineName = "Weapon";
             drillBurrowSkillDef.activationState = ContentAddition.AddEntityState<DrillBurrow>(out _);
-            drillBurrowSkillDef.baseRechargeInterval = prospectorBurrowCooldown.Value;
+            drillBurrowSkillDef.baseRechargeInterval = burrowCooldown.Value;
             drillBurrowSkillDef.cancelSprintingOnActivation = true;
             drillBurrowSkillDef.isCombatSkill = true;
             ContentAddition.AddSkillDef(drillBurrowSkillDef);
@@ -65,15 +65,15 @@ namespace EnemyAbilities.Abilities.SolusProspector
     public class DrillBurrow : BaseSkillState
     {
 
-        public static float baseWindupDuration = prospectorBurrowEntryDuration.Value;
-        public static float baseBurrowDuration = prospectorBurrowWaitDuration.Value;
-        public static float baseTelegraphDuration = prospectorBurrowTelegraphDuration.Value;
+        public static float baseWindupDuration = burrowEntryDuration.Value;
+        public static float baseBurrowDuration = burrowWaitDuration.Value;
+        public static float baseTelegraphDuration = burrowTelegraphDuration.Value;
         public static float baseAttackDuration = 1f;
-        public static float blastRadius = prospectorBurrowRadius.Value;
+        public static float blastRadius = burrowRadius.Value;
         public static float force = 1500f;
         public static Vector3 bonusForce = new Vector3(0f, 2500f, 0f);
-        public static float damageCoefficient = prospectorBurrowDamageCoefficient.Value / 100f;
-        public static float exitSpeedMultiplier = prospectorBurrowBaseVelocity.Value / 100f;
+        public static float damageCoefficient = burrowDamageCoeff.Value / 100f;
+        public static float exitSpeedMultiplier = burrowBaseVelocity.Value / 100f;
         private static GameObject indicatorPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common.TeamAreaIndicator__GroundOnly_prefab).WaitForCompletion();
         private static GameObject explosionPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_BeetleGuard.BeetleGuardGroundSlam_prefab).WaitForCompletion();
         private static GameObject burrowPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_MiniMushroom.MiniMushroomPlantEffect_prefab).WaitForCompletion();

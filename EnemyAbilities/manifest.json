@@ -1,8 +1,8 @@
 {
     "name": "EnemyAbilities",
-    "description": "A difficulty mod that adds more skills for monsters.",
-    "version_number": "1.5.1",
-    "dependencies": [ "RiskofThunder-R2API_RecalculateStats-1.6.5", "RiskofThunder-R2API_Prefab-1.1.1", "RiskofThunder-R2API_DamageType-1.1.7" ],
+    "description": "A difficulty mod that adds new skills to 11 different monsters!",
+    "version_number": "1.6.0",
+    "dependencies": [ "RiskofThunder-R2API_RecalculateStats-1.6.5", "RiskofThunder-R2API_Prefab-1.1.1", "RiskofThunder-R2API_DamageType-1.1.7", "score-MiscFixes-1.5.7" ],
     "optional_dependencies": [ "rune580-Risk_Of_Options-2.8.6" ],
     "website_url": "https://github.com/Skeletogne/EnemyAbilities"
 }

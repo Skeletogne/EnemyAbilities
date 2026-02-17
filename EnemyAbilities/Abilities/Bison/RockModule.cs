@@ -77,7 +77,7 @@ namespace EnemyAbilities.Abilities.Bison
             spawnRock.skillName = "BisonSpawnRock";
             spawnRock.activationStateMachineName = "Body";
             spawnRock.activationState = ContentAddition.AddEntityState<SpawnRock>(out _);
-            spawnRock.baseRechargeInterval = bisonRockCooldown.Value;
+            spawnRock.baseRechargeInterval = boulderCooldown.Value;
             spawnRock.canceledFromSprinting = false;
             spawnRock.isCombatSkill = false;
             ContentAddition.AddSkillDef(spawnRock);
@@ -123,7 +123,7 @@ namespace EnemyAbilities.Abilities.Bison
             Destroy(impact);
             ProjectileBisonRock rock = rockProjectile.AddComponent<ProjectileBisonRock>();
             rock.falloffModel = BlastAttack.FalloffModel.SweetSpot;
-            rock.blastRadius = bisonRockExplosionRadius.Value;
+            rock.blastRadius = boulderExplosionRadius.Value;
             rock.blastDamageCoefficient = 1f;
             rock.blastProcCoefficient = 1f;
             rock.blastAttackerFiltering = AttackerFiltering.Default;
@@ -171,6 +171,7 @@ namespace EnemyAbilities.Abilities.Bison
             characterBody.baseMaxHealth = 1000000f;
             characterBody.levelMaxHealth = 300000f;
             characterBody.SetSpreadBloom(0f);
+            characterBody.bodyFlags |= CharacterBody.BodyFlags.Ungrabbable;
 
             HealthComponent healthComponent = rockProjectile.AddComponent<HealthComponent>();
             healthComponent.body = characterBody;
@@ -214,9 +215,6 @@ namespace EnemyAbilities.Abilities.Bison
             DisableCollisionsBetweenColliders dcbc = rockProjectile.AddComponent<DisableCollisionsBetweenColliders>();
             dcbc.collidersA = [rockProjectile.GetComponent<SphereCollider>()];
             dcbc.collidersB = [collider];
-
-            ContentAddition.AddProjectile(rockProjectile);
-            ContentAddition.AddBody(rockProjectile);
             
         }
     }
@@ -226,7 +224,7 @@ namespace EnemyAbilities.Abilities.Bison
         private float duration;
 
         private static float rockSpawnDistance = 10f;
-        private int rockSpawnCount = (int)bisonRockCount.Value;
+        private int rockSpawnCount = (int)boulderCount.Value;
         private float rockIntervalInDegrees = 45f;
 
         private static GameObject projectilePrefab = RockModule.rockProjectile;
@@ -264,7 +262,7 @@ namespace EnemyAbilities.Abilities.Bison
                         Vector3 rockSpawnPosition = hit.point + new Vector3(0f, 1.75f, 0f);
                         DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Secondary, damageType = DamageType.Generic };
                         combo.AddModdedDamageType(RockModule.rockDamageType);
-                        ProjectileManager.instance.FireProjectile(projectilePrefab, rockSpawnPosition, Util.QuaternionSafeLookRotation(UnityEngine.Random.onUnitSphere), characterBody.gameObject, (bisonRockDamageCoefficient.Value / 100f) * damageStat, 2000f, RollCrit(), DamageColorIndex.Default, null, 0f, combo);
+                        ProjectileManager.instance.FireProjectile(projectilePrefab, rockSpawnPosition, Util.QuaternionSafeLookRotation(UnityEngine.Random.onUnitSphere), characterBody.gameObject, (boulderDamageCoeff.Value / 100f) * damageStat, 2000f, RollCrit(), DamageColorIndex.Default, null, 0f, combo);
                     }
                 }
             }
@@ -380,11 +378,11 @@ namespace EnemyAbilities.Abilities.Bison
             Vector3 startVelocity = Vector3.zero;
             if (foundTarget == true)
             {
-                startVelocity = Trajectory.CalculateInitialVelocityFromTime(rockPosition, targetHurtBox.healthComponent.body.transform.position, filter.teamIndex == TeamIndex.Player ? bisonRockTimeToTargetPlayer.Value : bisonRockTimeToTargetNonPlayer.Value, minHDistance: 10f, maxHDistance: 100f); 
+                startVelocity = Trajectory.CalculateInitialVelocityFromTime(rockPosition, targetHurtBox.healthComponent.body.transform.position, filter.teamIndex == TeamIndex.Player ? boulderTravelTimePlayer.Value : boulderTravelTimeNonPlayer.Value, minHDistance: 10f, maxHDistance: 100f); 
             }
             else
             {
-                startVelocity = Trajectory.CalculateInitialVelocityFromTime(rockPosition, rockPosition + searchDirection * 40f, bisonRockTimeToTargetNonPlayer.Value);
+                startVelocity = Trajectory.CalculateInitialVelocityFromTime(rockPosition, rockPosition + searchDirection * 40f, boulderTravelTimeNonPlayer.Value);
             }
             if (rockState == RockState.Embedded)
             {

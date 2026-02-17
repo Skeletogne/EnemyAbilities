@@ -18,7 +18,7 @@ using RoR2.Skills;
 using RoR2BepInExPack.GameAssetPaths.Version_1_39_0;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using static EnemyAbilities.Utils;
+using static EnemyAbilities.EnemiesPlusUtils;
 using static EnemyAbilities.PluginConfig;
 
 namespace EnemyAbilities.Abilities.XiConstruct
@@ -29,14 +29,12 @@ namespace EnemyAbilities.Abilities.XiConstruct
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_MajorAndMinorConstruct.MegaConstructBody_prefab).WaitForCompletion();
         private static GameObject masterPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_MajorAndMinorConstruct.MegaConstructMaster_prefab).WaitForCompletion();
         private static GameObject projectileGhost = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_ClayGrenadier.ClayGrenadierBarrelGhost_prefab).WaitForCompletion().InstantiateClone("MegaConstructEyeProjectileGhost");
-        private static GameObject modelPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_MajorAndMinorConstruct.mdlMegaConstruct_fbx).WaitForCompletion();
-        //major instead of mega since mega has some weird rendering issue I don't know how to fix
-        //major doesn't look great, but it's better than the orb being half-invisible
-        private static Material eyeMaterial = Addressables.LoadAssetAsync<Material>(RoR2_DLC1_MajorAndMinorConstruct.matMajorConstructEye_mat).WaitForCompletion();
+        private static Material eyeMaterial = Addressables.LoadAssetAsync<Material>(RoR2_DLC1_MajorAndMinorConstruct.matMegaConstructEye_mat).WaitForCompletion();
         private static GameObject impactEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Parent.ParentSlamEffect_prefab).WaitForCompletion();
         public static GameObject vagrantProjectile = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Vagrant.VagrantTrackingBomb_prefab).WaitForCompletion().InstantiateClone("ClonedVagrantProjectile");
         private static Material trailMaterial = Addressables.LoadAssetAsync<Material>(RoR2_DLC1_MajorAndMinorConstruct.matConstructBeamInitial_mat).WaitForCompletion();
-        private static GameObject transferDamageImpactEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common_VFX.OmniImpactVFXLarge_prefab).WaitForCompletion().InstantiateClone("scalableImpactEffect");
+        public static GameObject transferDamageImpactEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common_VFX.OmniImpactVFXLarge_prefab).WaitForCompletion().InstantiateClone("scalableImpactEffect");
+        private static GameObject megaConstructModel = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_MajorAndMinorConstruct.mdlMegaConstruct_fbx).WaitForCompletion();
 
         public override void Awake()
         {
@@ -121,130 +119,151 @@ namespace EnemyAbilities.Abilities.XiConstruct
                     }
                 }
             }
-            Transform[] transforms = modelPrefab.GetComponentsInChildren<Transform>();
-            foreach (Transform t in transforms)
+
+            Transform[] modelTransforms = megaConstructModel.GetComponentsInChildren<Transform>();
+            GameObject eyeObject = modelTransforms.Where(transform => transform.gameObject.name == "MegaConstructEyeMesh").FirstOrDefault().gameObject;
+            if (eyeObject == null)
             {
-                if (t.name == "MegaConstructEyeMesh")
-                {
-                    //this section is super messy and filled with various attempts to get the mega construct eye to render properly
-                    Transform vagrantProjectileTransform = vagrantProjectile.GetComponent<Transform>();
-                    vagrantProjectileTransform.localScale = Vector3.one;
-                    Transform eyeTransform = t;
-                    GameObject gameObject = eyeTransform.gameObject;
-                    MeshFilter eyeMeshFilter = gameObject.GetComponent<MeshFilter>();
-                    MeshRenderer eyeMeshRenderer = gameObject.GetComponent<MeshRenderer>();
-                    eyeMeshRenderer.localBounds = new Bounds
-                    {
-                        center = new Vector3(0f, 0f, 0f),
-                        extents = new Vector3(5f, 5f, 10f)
-                    };
-                    Material eyeMaterialClone = new Material(eyeMaterial);
-                    ProjectileController controller = vagrantProjectile.GetComponent<ProjectileController>();
-                    MeshFilter ghostMeshFilter = projectileGhost.GetComponentInChildren<MeshFilter>();
-                    ParticleSystem[] systems = projectileGhost.GetComponentsInChildren<ParticleSystem>();
-                    MeshRenderer ghostMeshRenderer = projectileGhost.GetComponentInChildren<MeshRenderer>();
-                    RotateAroundAxis rotateAroundAxis = projectileGhost.GetComponentInChildren<RotateAroundAxis>();
-                    Destroy(rotateAroundAxis);
-                    Rigidbody rigidbody = vagrantProjectile.GetComponent<Rigidbody>();
-                    SphereCollider sphere = rigidbody.GetComponent<SphereCollider>();
-                    sphere.radius = 0.2f;
-                    rigidbody.mass = 1f;
-                    ghostMeshRenderer.material = eyeMaterialClone;
-                    ghostMeshRenderer.forceRenderingOff = false;
-                    controller.ghostPrefab = projectileGhost;
-                    controller.flightSoundLoop = null;
-                    controller.cannotBeDeleted = true;
-                    Transform ghostMeshFilterTransform = ghostMeshFilter.GetComponent<Transform>();
-                    ghostMeshFilterTransform.localScale = Vector3.one;
-                    ghostMeshFilterTransform.localPosition = Vector3.zero;
-                    ghostMeshFilterTransform.localRotation = Quaternion.identity;
-
-                    for (int i = systems.Length - 1; i >= 0; i--)
-                    {
-                        Destroy(systems[i]);
-                    }
-                    Mesh mesh = eyeMeshFilter.sharedMesh;
-                    ghostMeshFilter.sharedMesh = mesh;
-                    ghostMeshFilter.mesh = mesh;
-
-                    Transform transform = projectileGhost.GetComponent<Transform>();
-                    transform.localScale = new Vector3(5f, 5f, 2.5f);
-
-                    ProjectileSimple simple = vagrantProjectile.GetComponent<ProjectileSimple>();
-                    simple.lifetime = 20f;
-
-                    ProjectileImpactExplosion impact = vagrantProjectile.GetComponent<ProjectileImpactExplosion>();
-                    UnityEngine.Object.Destroy(impact);
-                    ProjectileDetonateOnImpact detonate = vagrantProjectile.AddComponent<ProjectileDetonateOnImpact>();
-                    detonate.gameObject.layer = LayerIndex.projectileWorldOnly.intVal;
-                    if (detonate != null)
-                    {
-                        detonate.impactEffect = impactEffect;
-                        detonate.blastRadius = xiCoreExplosionRadius.Value;
-                        detonate.blastDamageCoefficient = 1f;
-                        detonate.falloffModel = BlastAttack.FalloffModel.SweetSpot;
-                        detonate.bonusBlastForce = new Vector3(0f, 2000f, 0f);
-                        detonate.destroyOnEnemy = false;
-                        detonate.destroyOnWorld = false;
-                        detonate.impactOnWorld = true;
-                        detonate.lifetimeAfterImpact = 60f;
-                        detonate.timerAfterImpact = true;
-                        detonate.detonateOnEnemy = false;
-                        detonate.detonateOnWorld = true;
-                        detonate.lifetime = 60f;
-                        detonate.explosionEffect = impactEffect;
-                        detonate.blastProcCoefficient = 1f;
-                        detonate.transformSpace = ProjectileDetonateOnImpact.TransformSpace.World;
-                        detonate.explodeOnLifeTimeExpiration = false;
-                    }
-                    ProjectileStickOnImpact stick = vagrantProjectile.AddComponent<ProjectileStickOnImpact>();
-                    stick.ignoreCharacters = true;
-                    stick.ignoreWorld = false;
-                    stick.ignoreSteepSlopes = false;
-
-                    CharacterBody xiConstructBody = bodyPrefab.GetComponent<CharacterBody>();
-
-                    CharacterBody body = vagrantProjectile.GetComponent<CharacterBody>();
-                    body.baseMaxHealth = xiConstructBody.baseMaxHealth;
-                    body.levelMaxHealth = xiConstructBody.levelMaxHealth;
-                    body.baseArmor = xiConstructBody.baseArmor;
-                    body.isChampion = xiConstructBody.isChampion;
-
-                    ProjectileMegaConstructEye projectileEye = vagrantProjectile.AddComponent<ProjectileMegaConstructEye>();
-
-                    HurtBox hurtBox = vagrantProjectile.GetComponentInChildren<HurtBox>();
-                    hurtBox.healthComponent = null;
-
-                    TrailRenderer trailRenderer = projectileGhost.AddComponent<TrailRenderer>();
-                    trailRenderer.bounds = default(Bounds);
-                    trailRenderer.localBounds = default(Bounds);
-                    trailRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
-                    trailRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-                    trailRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-                    trailRenderer.time = 0.2f;
-                    trailRenderer.startWidth = 1f;
-                    trailRenderer.endWidth = 1f;
-                    trailRenderer.material = trailMaterial;
-                    trailRenderer.sharedMaterial = trailMaterial;
-
-                    Light light = projectileGhost.AddComponent<Light>();
-                    light.type = LightType.Point;
-                    light.spotAngle = 30f;
-                    light.innerSpotAngle = 21.80208f;
-                    light.color = new Color(r: 1.000f, g: 0.509f, b: 0.000f, a: 1.000f);
-                    light.colorTemperature = 6570f;
-                    light.intensity = 242.27f;
-                    light.bounceIntensity = 1f;
-                    light.shadowBias = 0.05f;
-                    light.shadowNormalBias = 0.4f;
-                    light.shadowNearPlane = 0.2f;
-                    light.range = 7.62f;
-                    light.shadowStrength = 1f;
-                    light.shadowResolution = UnityEngine.Rendering.LightShadowResolution.FromQualitySettings;
-
-                    ContentAddition.AddBody(vagrantProjectile);
-                }
+                Log.Debug($"eyeObject not found!");
+                return;
             }
+            GameObject eyeObjectClone = eyeObject.InstantiateClone("eyeObjectClone");
+            MeshRenderer renderer = eyeObjectClone.GetComponent<MeshRenderer>();
+            renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.BlendProbes;
+            renderer.material = eyeMaterial;
+            PrintController printController = eyeObjectClone.AddComponent<PrintController>();
+            printController.printTime = 0f;
+            printController.disableWhenFinished = true;
+            printController.maxPrintHeight = -10f;
+            printController.startingPrintHeight = 4f;
+            printController.printCurve = bodyPrefab.GetComponentInChildren<PrintController>().printCurve;
+#pragma warning disable CS0618 // Type or member is obsolete
+            printController.materialPrintCutoffPostSkinApplying = true;
+#pragma warning restore CS0618 // Type or member is obsolete
+
+
+
+            //this section is super messy and filled with various attempts to get the mega construct eye to render properly
+            Transform vagrantProjectileTransform = vagrantProjectile.GetComponent<Transform>();
+            vagrantProjectileTransform.localScale = Vector3.one;
+            ProjectileController controller = vagrantProjectile.GetComponent<ProjectileController>();
+            ParticleSystem[] systems = projectileGhost.GetComponentsInChildren<ParticleSystem>();
+            Rigidbody rigidbody = vagrantProjectile.GetComponent<Rigidbody>();
+            SphereCollider sphere = rigidbody.GetComponent<SphereCollider>();
+
+            Transform[] ghostTransforms = projectileGhost.GetComponentsInChildren<Transform>();
+            GameObject mdlTarBallObject = ghostTransforms.Where(transform => transform.gameObject.name == "mdlTarball").FirstOrDefault().gameObject;
+            if (mdlTarBallObject != null)
+            {
+                DestroyImmediate(mdlTarBallObject);
+            }
+            Transform ghostBaseTransform = projectileGhost.GetComponent<Transform>();
+            if (ghostBaseTransform != null)
+            {
+                Transform eyeObjectTransform = eyeObjectClone.GetComponent<Transform>();
+                eyeObjectTransform.parent = ghostBaseTransform;
+                eyeObjectTransform.localPosition = Vector3.zero;
+            }
+            else
+            {
+                Log.Error($"ghostBaseTransform is null!");
+            }
+
+            sphere.radius = 0.2f;
+            rigidbody.mass = 1f;
+            controller.ghostPrefab = projectileGhost;
+            controller.flightSoundLoop = null;
+            controller.cannotBeDeleted = true;
+
+            for (int i = systems.Length - 1; i >= 0; i--)
+            {
+                Destroy(systems[i]);
+            }
+
+            Transform transform = projectileGhost.GetComponent<Transform>();
+            //transform.localScale = new Vector3(5f, 5f, 2.5f);
+
+            ProjectileSimple simple = vagrantProjectile.GetComponent<ProjectileSimple>();
+            simple.lifetime = 20f;
+
+            ProjectileImpactExplosion impact = vagrantProjectile.GetComponent<ProjectileImpactExplosion>();
+            UnityEngine.Object.Destroy(impact);
+            ProjectileDetonateOnImpact detonate = vagrantProjectile.AddComponent<ProjectileDetonateOnImpact>();
+            detonate.gameObject.layer = LayerIndex.projectileWorldOnly.intVal;
+            if (detonate != null)
+            {
+                detonate.impactEffect = impactEffect;
+                detonate.blastRadius = coreExplosionRadius.Value;
+                detonate.blastDamageCoefficient = 1f;
+                detonate.falloffModel = BlastAttack.FalloffModel.SweetSpot;
+                detonate.bonusBlastForce = new Vector3(0f, 2000f, 0f);
+                detonate.destroyOnEnemy = false;
+                detonate.destroyOnWorld = false;
+                detonate.impactOnWorld = true;
+                detonate.lifetimeAfterImpact = 60f;
+                detonate.timerAfterImpact = true;
+                detonate.detonateOnEnemy = false;
+                detonate.detonateOnWorld = true;
+                detonate.lifetime = 60f;
+                detonate.explosionEffect = impactEffect;
+                detonate.blastProcCoefficient = 1f;
+                detonate.transformSpace = ProjectileDetonateOnImpact.TransformSpace.World;
+                detonate.explodeOnLifeTimeExpiration = false;
+            }
+            ProjectileStickOnImpact stick = vagrantProjectile.AddComponent<ProjectileStickOnImpact>();
+            stick.ignoreCharacters = true;
+            stick.ignoreWorld = false;
+            stick.ignoreSteepSlopes = false;
+
+            CharacterBody xiConstructBody = bodyPrefab.GetComponent<CharacterBody>();
+
+            CharacterBody body = vagrantProjectile.GetComponent<CharacterBody>();
+            body.baseMaxHealth = xiConstructBody.baseMaxHealth;
+            body.levelMaxHealth = xiConstructBody.levelMaxHealth;
+            body.baseArmor = xiConstructBody.baseArmor;
+            body.isChampion = xiConstructBody.isChampion;
+
+            ProjectileMegaConstructEye projectileEye = vagrantProjectile.AddComponent<ProjectileMegaConstructEye>();
+
+            HurtBox hurtBox = vagrantProjectile.GetComponentInChildren<HurtBox>();
+            hurtBox.healthComponent = null;
+
+            TrailRenderer trailRenderer = projectileGhost.AddComponent<TrailRenderer>();
+            trailRenderer.bounds = default(Bounds);
+            trailRenderer.localBounds = default(Bounds);
+            trailRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            trailRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+            trailRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            trailRenderer.time = 0.2f;
+            trailRenderer.minVertexDistance = 0.1f;
+            trailRenderer.startWidth = 1f;
+            trailRenderer.endWidth = 0.2f;
+            trailRenderer.material = trailMaterial;
+            trailRenderer.sharedMaterial = trailMaterial;
+            trailRenderer.emitting = true;
+            trailRenderer.textureMode = LineTextureMode.Stretch;
+            trailRenderer.shadowBias = 0.5f;
+            trailRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+            trailRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            trailRenderer.motionVectorGenerationMode = MotionVectorGenerationMode.Camera;
+            trailRenderer.allowOcclusionWhenDynamic = true;
+
+            Light light = projectileGhost.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.spotAngle = 30f;
+            light.innerSpotAngle = 21.80208f;
+            light.color = new Color(r: 1.000f, g: 0.509f, b: 0.000f, a: 1.000f);
+            light.colorTemperature = 6570f;
+            light.intensity = 242.27f;
+            light.bounceIntensity = 1f;
+            light.shadowBias = 0.05f;
+            light.shadowNormalBias = 0.4f;
+            light.shadowNearPlane = 0.2f;
+            light.range = 7.62f;
+            light.shadowStrength = 1f;
+            light.shadowResolution = UnityEngine.Rendering.LightShadowResolution.FromQualitySettings;
+
+            ContentAddition.AddBody(vagrantProjectile);
         }
         public void CreateSkill()
         {
@@ -253,7 +272,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
             detachEye.skillName = "MegaConstructDetachEye";
             detachEye.activationStateMachineName = "Body";
             detachEye.activationState = ContentAddition.AddEntityState<DetachEye>(out _);
-            detachEye.baseRechargeInterval = xiCoreCooldown.Value;   
+            detachEye.baseRechargeInterval = coreCooldown.Value;   
             detachEye.cancelSprintingOnActivation = true;
             detachEye.isCombatSkill = true;
             ContentAddition.AddSkillDef(detachEye);
@@ -375,10 +394,10 @@ namespace EnemyAbilities.Abilities.XiConstruct
             Recall
         }
 
-        private static float baseWindupDuration = xiCoreWindupDuration.Value;
+        private static float baseWindupDuration = coreWindupDuration.Value;
         private float windupDuration;
         private float windupTimer;
-        private static float baseWaitDuration = xiCoreWaitDuration.Value;
+        private static float baseWaitDuration = coreWaitDuration.Value;
         private float waitDuration;
         private float waitTimer;
         private AbilityState abilityState;
@@ -545,7 +564,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
                 Ray aimRay = GetAimRay();
                 Quaternion modelRotation = modelLocator.modelTransform.rotation;
                 DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Secondary, damageType = DamageType.Generic };
-                ProjectileManager.instance.FireProjectile(projectilePrefab, aimRay.origin, modelRotation, characterBody.gameObject, (xiCoreDamageCoefficient.Value / 100f) * damageStat, force, RollCrit(), DamageColorIndex.Default, null, speedOverride, combo);
+                ProjectileManager.instance.FireProjectile(projectilePrefab, aimRay.origin, modelRotation, characterBody.gameObject, (coreDamageCoeff.Value / 100f) * damageStat, force, RollCrit(), DamageColorIndex.Default, null, speedOverride, combo);
             }
             ToggleEyeVisual(false);
             ToggleHurtBoxes(false);

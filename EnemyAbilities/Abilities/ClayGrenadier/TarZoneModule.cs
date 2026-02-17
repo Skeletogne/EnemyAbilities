@@ -13,6 +13,7 @@ using MonoMod.Cil;
 using Mono.Cecil.Cil;
 using System;
 using static EnemyAbilities.PluginConfig;
+using EnemyAbilities.Abilities.XiConstruct;
 
 namespace EnemyAbilities.Abilities.ClayGrenadier
 {
@@ -32,7 +33,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
         public static GameObject bigTarBallGhost = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_ClayGrenadier.ClayGrenadierBarrelGhost_prefab).WaitForCompletion().InstantiateClone("bigTarBallGhost");
         public static GameObject tarImpactEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_ClayBruiser.ClayShockwaveEffect_prefab).WaitForCompletion().InstantiateClone("scalableTarImpactEffect");
         private static CharacterSpawnCard cscApothecary = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_DLC1_ClayGrenadier.cscClayGrenadier_asset).WaitForCompletion();
-        private static GameObject chargeEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_ClayBoss.TarballExplosion_prefab).WaitForCompletion();
+        private static GameObject chargeEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common_VFX.OmniImpactVFXLarge_prefab).WaitForCompletion();
         public override void Awake()
         {
             CreateSkill();
@@ -138,7 +139,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             tarZoneSkill.skillName = "ClayGrenadierTarZone";
             tarZoneSkill.activationStateMachineName = "Weapon";
             tarZoneSkill.activationState = ContentAddition.AddEntityState<FireBigBlob>(out _);
-            tarZoneSkill.baseRechargeInterval = apothecaryDelugeCooldown.Value;
+            tarZoneSkill.baseRechargeInterval = delugeCooldown.Value;
             tarZoneSkill.cancelSprintingOnActivation = true;
             tarZoneSkill.isCombatSkill = true;
             ContentAddition.AddSkillDef(tarZoneSkill);
@@ -162,7 +163,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             useSpecial.requireSkillReady = true;
             useSpecial.minDistance = 0f;
             useSpecial.maxDistance = 100f;
-            useSpecial.maxUserHealthFraction = (apothecaryDelugeHealthThreshold.Value / 100f);
+            useSpecial.maxUserHealthFraction = (delugeHealthThreshold.Value / 100f);
             useSpecial.selectionRequiresTargetLoS = true;
             useSpecial.moveTargetType = AISkillDriver.TargetType.CurrentEnemy;
             useSpecial.movementType = AISkillDriver.MovementType.ChaseMoveTarget;
@@ -231,14 +232,14 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             impact.childrenCount = 1;
             impact.childrenProjectilePrefab = tarZoneProjectile;
             impact.fireChildren = true;
-            impact.childrenDamageCoefficient = apothecaryDelugeAoEZoneDamagePercentage.Value / 100f;
+            impact.childrenDamageCoefficient = delugeDoTZoneDamagePercentage.Value / 100f;
             impact.preserveExplosionOrientation = false;
             impact.useChildRotation = true;
             impact.destroyOnWorld = false;
             impact.destroyOnEnemy = false;
             impact.impactOnWorld = true;
             impact.timerAfterImpact = true;
-            impact.lifetimeAfterImpact = apothecaryDelugeFuseTime.Value;
+            impact.lifetimeAfterImpact = delugeFuseTime.Value;
             impact.explodeOnLifeTimeExpiration = false;
             impact.lifetime = 20f;
 
@@ -290,7 +291,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
         {
             private static float baseWindupDuration = 0.2f;
             private float windupDuration;
-            private static float baseChargeDuration = apothecaryDelugeChargeTime.Value;
+            private static float baseChargeDuration = delugeChargeTime.Value;
             private float chargeDuration;
             private bool spawnedProjectile;
             private bool launchedProjectile;
@@ -348,7 +349,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 {
                     endPosition = hit.point;
                 }
-                Vector3 velocity = Trajectory.CalculateInitialVelocityFromTime(startPosition, endPosition, apothecaryDelugeTravelTime.Value, gravity: Physics.gravity.y * 0.5f);
+                Vector3 velocity = Trajectory.CalculateInitialVelocityFromTime(startPosition, endPosition, delugeTravelTime.Value, gravity: Physics.gravity.y * 0.5f);
                 if (chargeController.charging)
                 {
                     chargeController.StopChargingAndLaunchProjectile(velocity);
@@ -379,10 +380,10 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             private EffectManagerHelper _emh_bubblesInstance;
             private Vector3 effectOffset = new Vector3(0f, -4f, 0f);
             public float chargePercentage;
-            private static float lifetime = apothecaryDelugeAoEZoneDuration.Value;
+            private static float lifetime = delugeDoTDuration.Value;
             private float stopwatch;
-            private float minRadius = apothecaryDelugeMinRadius.Value;
-            private float maxRadius = apothecaryDelugeMaxRadius.Value;
+            private float minRadius = delugeMinRadius.Value;
+            private float maxRadius = delugeMaxRadius.Value;
             private float radius;
             public void Start()
             {
@@ -415,8 +416,11 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 ParticleSystem[] particleSystems = tarBubblesInstance.GetComponentsInChildren<ParticleSystem>();
                 ParticleSystem bubblesSystem = particleSystems[0];
                 //destroy the scourge that is: weird spinny thing
-                UnityEngine.Object.Destroy(particleSystemRenderers[1]);
-                UnityEngine.Object.Destroy(particleSystems[1]);
+                if (particleSystemRenderers.Length > 1)
+                {
+                    UnityEngine.Object.Destroy(particleSystemRenderers[1]);
+                    UnityEngine.Object.Destroy(particleSystems[1]);
+                }
                 ParticleSystem.MainModule main1 = bubblesSystem.main;
                 ParticleSystem.ShapeModule shape = bubblesSystem.shape;
                 ParticleSystem.SizeOverLifetimeModule size = bubblesSystem.sizeOverLifetime;
@@ -513,7 +517,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
         public class ClayGrenadierChargeController : MonoBehaviour
         {
             public float percentageHealthTaken = 0f;
-            private static float maxPercentageHealthTaken = apothecaryDelugeHealthPercentageRequiredForFullCharge.Value / 100f;
+            private static float maxPercentageHealthTaken = delugeDamagePercetangeForFullCharge.Value / 100f;
             public bool charging = false;
             private Transform tarBallTransform;
             private CharacterBody body;
@@ -524,6 +528,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             private ProjectileController controller;
             private ProjectileDamage damageComponent;
             public float percentageCharge;
+            private SphereCollider collider;
             private static GameObject explosionVFX = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_ClayGrenadier.ClayGrenadierBarrelExplosion_prefab).WaitForCompletion();
             public void Start()
             {
@@ -573,9 +578,14 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                         stick = tarBallInstance.GetComponent<ProjectileStickOnImpact>();
                         damageComponent = tarBallInstance.GetComponent <ProjectileDamage>();
                         bigTarBlob = tarBallInstance.GetComponent<ProjectileBigTarBlob>();
+                        collider = tarBallInstance.GetComponent<SphereCollider>();
                         impact.enabled = false;
+                        stick.ignoreCharacters = true;
+                        stick.ignoreWorld = true;
                         stick.enabled = false;
                         bigTarBlob.enabled = false;
+                        collider.enabled = false;
+
                     }
                 }
             }
@@ -600,9 +610,9 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 }
                 if (attackerBody != null && attackerBody.teamComponent != null)
                 {
-                    float radius = apothecaryDelugeMinRadius.Value + percentageCharge * (apothecaryDelugeMaxRadius.Value - apothecaryDelugeMinRadius.Value);
+                    float radius = delugeMinRadius.Value + percentageCharge * (delugeMaxRadius.Value - delugeMinRadius.Value);
                     TeamIndex teamIndex = attackerBody.teamComponent.teamIndex;
-                    float playerDamage = (apothecaryDelugePlayerDetonateDamage.Value / 100f) * attackerBody.damage;
+                    float playerDamage = (delugePlayerDetonateDamage.Value / 100f) * attackerBody.damage;
                     float nonPlayerDamage = 1f * attackerBody.damage;
                     BlastAttack attack = new BlastAttack();
                     attack.radius = radius;
@@ -637,11 +647,13 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                     charging = false;
                     impact.enabled = true;
                     stick.enabled = true;
+                    stick.ignoreWorld = false;
                     bigTarBlob.enabled = true;
+                    collider.enabled = true;
                     bigTarBlob.chargePercentage = percentageCharge;
 
-                    float radius = apothecaryDelugeMinRadius.Value + (percentageCharge * (apothecaryDelugeMaxRadius.Value - apothecaryDelugeMinRadius.Value));
-                    float damage = apothecaryDelugeMinDamage.Value / 100f + (percentageCharge * (apothecaryDelugeMaxDamage.Value / 100f - apothecaryDelugeMinDamage.Value / 100f));
+                    float radius = delugeMinRadius.Value + (percentageCharge * (delugeMaxRadius.Value - delugeMinRadius.Value));
+                    float damage = delugeMinDamage.Value / 100f + (percentageCharge * (delugeMaxDamage.Value / 100f - delugeMinDamage.Value / 100f));
 
                     impact.blastRadius = radius;
                     damageComponent.damage = damage * body.damage;

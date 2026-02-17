@@ -23,6 +23,7 @@
 		<PackageReference Include="MMHOOK.RoR2" Version="2025.12.9" NoWarn="NU1701" />
 		<PackageReference Include="Rune580.Mods.RiskOfRain2.RiskOfOptions" Version="2.8.2" />
 		<PackageReference Include="RoR2BepInExPack" Version="1.41.0" />
+		<PackageReference Include="score-MiscFixes" Version="1.5.0" />
 	</ItemGroup>
 	<ItemGroup>
 		<Reference Include="Decalicious" Private="false">

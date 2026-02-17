@@ -13,7 +13,7 @@ namespace EnemyAbilities
 {
 
     // !!! This is not my code !!! The following was taken from a version of EnemiesPlus.Utils, FULL credit to .score
-    public static class Utils
+    public static class EnemiesPlusUtils
     {
         public static void ReorderSkillDrivers(this GameObject master, AISkillDriver targetSkill, int targetIdx)
         {
@@ -96,7 +96,6 @@ namespace EnemyAbilities
                 }
             }
         }
-
         public static T GetCopyOf<T>(this Component comp, T other) where T : Component
         {
             var type = comp.GetType();
@@ -345,5 +344,9 @@ namespace EnemyAbilities
                 }
             }
         }
+    }
+    public static class Utils
+    {
+
     }
 }

@@ -31,7 +31,7 @@ namespace EnemyAbilities.Abilities.FlyingVermin
             thwompStomp.skillName = "FlyingVerminThwompStomp";
             thwompStomp.activationStateMachineName = "Body";
             thwompStomp.activationState = ContentAddition.AddEntityState<ThwompStomp>(out _);
-            thwompStomp.baseRechargeInterval = pestThwompCooldown.Value;
+            thwompStomp.baseRechargeInterval = thwompCooldown.Value;
             thwompStomp.cancelSprintingOnActivation = true;
             thwompStomp.isCombatSkill = true;
             ContentAddition.AddSkillDef(thwompStomp);
@@ -97,17 +97,17 @@ namespace EnemyAbilities.Abilities.FlyingVermin
     public class ThwompStomp : BaseSkillState
     {
         private float warningDuration;
-        private static float baseWarningDuration = pestThwompWarningDuration.Value;
+        private static float baseWarningDuration = thwompWarningDuration.Value;
         private bool thwompingIt;
         private bool hitGround;
-        private static float baseRecoveryDuration = pestThwompRecoveryDuration.Value;
+        private static float baseRecoveryDuration = thwompRecoveryDuration.Value;
         private float recoveryDuration;
         private float recoveryStopwatch = 0f;
-        private static float damageCoefficient = pestThwompDamageCoefficient.Value / 100f;
+        private static float damageCoefficient = thwompDamageCoeff.Value / 100f;
         private static float force = 1000f;
         private static Vector3 bonusForce = new Vector3(0f, 1000f, 0f);
         private static float procCoefficient = 1f;
-        private static float radius = pestThwompRadius.Value;
+        private static float radius = thwompRadius.Value;
         private ThwompController controller;
         private static GameObject blastEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Croco.CrocoLeapExplosion_prefab).WaitForCompletion();
         private static GameObject indicatorPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common.TeamAreaIndicator__GroundOnly_prefab).WaitForCompletion();
@@ -246,9 +246,9 @@ namespace EnemyAbilities.Abilities.FlyingVermin
         private float maximumDistance = 40f;
         public bool foundTarget = false;
         //slightly bigger than actual ability radius for baiting
-        private float radius = 3f + pestThwompRadius.Value;
+        private float radius = 3f + thwompRadius.Value;
         private float gravityTimer;
-        private float gravityDuration = pestThwompGroundedDuration.Value;
+        private float gravityDuration = thwompGroundedDuration.Value;
         public int savedBaseJumpCount;
         public int savedMaxJumpCount;
 

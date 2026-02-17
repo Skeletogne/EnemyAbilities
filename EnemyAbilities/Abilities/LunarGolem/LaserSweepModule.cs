@@ -34,11 +34,11 @@ namespace EnemyAbilities.Abilities.LunarGolem
             laserSweep.skillName = "LunarGolemLaserSweep";
             laserSweep.activationStateMachineName = "Weapon";
             laserSweep.activationState = ContentAddition.AddEntityState<LaserSweep>(out _);
-            laserSweep.baseRechargeInterval = lunarGolemLaserCooldown.Value;
+            laserSweep.baseRechargeInterval = lasersweepCooldown.Value;
             laserSweep.cancelSprintingOnActivation = true;
             laserSweep.isCombatSkill = true;
-            laserSweep.baseMaxStock = (int)lunarGolemLaserCharges.Value;
-            laserSweep.rechargeStock = (int)lunarGolemLaserCharges.Value;
+            laserSweep.baseMaxStock = (int)lasersweepCharges.Value;
+            laserSweep.rechargeStock = (int)lasersweepCharges.Value;
             laserSweep.requiredStock = 1;
             laserSweep.stockToConsume = 1;
             laserSweep.resetCooldownTimerOnUse = false;
@@ -63,7 +63,7 @@ namespace EnemyAbilities.Abilities.LunarGolem
             useSpecial.skillSlot = SkillSlot.Special;
             useSpecial.minDistance = 0f;
             useSpecial.maxDistance = 100f;
-            useSpecial.maxUserHealthFraction = lunarGolemHealthThreshold.Value / 100f;
+            useSpecial.maxUserHealthFraction = lasersweepHealthThreshold.Value / 100f;
             useSpecial.requireSkillReady = true;
             useSpecial.moveTargetType = AISkillDriver.TargetType.CurrentEnemy;
             useSpecial.aimType = AISkillDriver.AimType.AtCurrentEnemy;
@@ -98,9 +98,9 @@ namespace EnemyAbilities.Abilities.LunarGolem
         }
         public class LaserSweep : BaseSkillState
         {
-            private static float baseWindupDuration = lunarGolemWindupDuration.Value;
+            private static float baseWindupDuration = lasersweepWindupDuration.Value;
             private float windupDuration;
-            private static float baseSweepDuration = lunarGolemSweepDuration.Value;
+            private static float baseSweepDuration = lasersweepSweepDuration.Value;
             private float sweepDuration;
             private static float laserMaxDistance = 200f;
             private int cannonIndex;
@@ -314,10 +314,10 @@ namespace EnemyAbilities.Abilities.LunarGolem
             public float damageTickInterval = 0.2f;
             public float radius = 2.5f;
             public float height = 0.5f;
-            private float pointLifeTime = lunarGolemExplosionDelay.Value;
+            private float pointLifeTime = lasersweepExplosionDelay.Value;
             private float stopwatch = 0f;
-            private static float dotDamageCoefficient = lunarGolemDoTDamageCoefficient.Value / 100f;
-            private static float explosionDamageCoefficient = lunarGolemExplosionDamageCoefficient.Value / 100f;
+            private static float dotDamageCoefficient = lasersweepDoTDamageCoeff.Value / 100f;
+            private static float explosionDamageCoefficient = lasersweepExplosionDamageCoeff.Value / 100f;
 
             private float nextDamageTrailUpdate;
             private List<GameObject> ignoredObjects = new List<GameObject>();
@@ -459,7 +459,7 @@ namespace EnemyAbilities.Abilities.LunarGolem
                     attack.baseForce = 3000f;
                     attack.damageColorIndex = DamageColorIndex.Default;
                     attack.position = trailPoints[pointIndex].position;
-                    attack.radius = lunarGolemExplosionRadius.Value;
+                    attack.radius = lasersweepExplosionRadius.Value;
                     attack.damageType = new DamageTypeCombo { damageSource = DamageSource.Special, damageType = DamageType.Generic };
                     attack.procCoefficient = 0f;
                     attack.crit = false;

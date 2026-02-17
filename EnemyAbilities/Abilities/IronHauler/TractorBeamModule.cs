@@ -110,7 +110,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             tractorBeamSkillDef.skillName = "IronHaulerTractorBeam";
             tractorBeamSkillDef.activationStateMachineName = "Weapon";
             tractorBeamSkillDef.activationState = ContentAddition.AddEntityState<TractorBeam>(out _);
-            tractorBeamSkillDef.baseRechargeInterval = transporterTractorBeamCooldown.Value;
+            tractorBeamSkillDef.baseRechargeInterval = tractorBeamCooldown.Value;
             tractorBeamSkillDef.cancelSprintingOnActivation = true;
             tractorBeamSkillDef.isCombatSkill = true;
             tractorBeamSkillDef.beginSkillCooldownOnSkillEnd = false;
@@ -173,7 +173,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             chaseWithCargo.skillSlot = SkillSlot.Utility;
             chaseWithCargo.requiredSkill = flingSkillDef;
             chaseWithCargo.minDistance = 0f;
-            chaseWithCargo.maxDistance = transporterFlingMaxRange.Value;
+            chaseWithCargo.maxDistance = flingMaxRange.Value;
             chaseWithCargo.moveTargetType = AISkillDriver.TargetType.Custom;
             chaseWithCargo.activationRequiresAimTargetLoS = true;
             chaseWithCargo.selectionRequiresTargetLoS = false;
@@ -389,11 +389,11 @@ namespace EnemyAbilities.Abilities.IronHauler
         private IronHaulerCargoController cargoController;
         private CharacterBody cargoBody;
 
-        private static float baseDamageCoefficient = transporterFlingBaseDamageCoefficient.Value / 100f;
+        private static float baseDamageCoefficient = flingBaseDamageCoeff.Value / 100f;
         private static float baseForce = 1500f;
         private static Vector3 bonusForce = new Vector3(0f, 1500f, 0f);
         private static float procCoefficient = 1f;
-        private static float baseRadius = transporterFlingRadius.Value;
+        private static float baseRadius = flingRadius.Value;
 
         private static float lockOnDuration = 1f;
         private float lockOnTimer = 0f;
@@ -595,7 +595,7 @@ namespace EnemyAbilities.Abilities.IronHauler
                 BlastAttack blastAttack = new BlastAttack();
                 blastAttack.attacker = characterBody.gameObject;
                 blastAttack.attackerFiltering = AttackerFiltering.NeverHitSelf;
-                blastAttack.baseDamage = damageStat * (baseDamageCoefficient + ((cargoMass / 100f) * transporterFlingDamageCoefficientPerUnitMass.Value));
+                blastAttack.baseDamage = damageStat * (baseDamageCoefficient + ((cargoMass / 100f) * flingDamageCoeffPerUnitMass.Value));
                 blastAttack.baseForce = baseForce + cargoMass * 3f;
                 blastAttack.bonusForce = bonusForce + new Vector3(0f, cargoMass * 1.5f, 0f);
                 blastAttack.crit = RollCrit();
@@ -632,7 +632,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             Vector3 gravity = Physics.gravity; 
             Vector3 initialPosition = cargoBody.transform.position;
             Vector3 finalPosition = ai.customTarget.characterBody.footPosition;
-            float time = transporterFlingTimeToTarget.Value;
+            float time = flingTimeToTarget.Value;
 
             Vector3 vector1 = (finalPosition - initialPosition) / time;
             Vector3 vector2 = 0.5f * gravity * time;
