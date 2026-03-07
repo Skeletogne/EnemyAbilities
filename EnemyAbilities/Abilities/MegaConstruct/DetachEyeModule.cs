@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using BepInEx.Configuration;
 using EntityStates;
 using EntityStates.MajorConstruct.Weapon;
 using HarmonyLib;
@@ -35,45 +36,39 @@ namespace EnemyAbilities.Abilities.XiConstruct
         private static Material trailMaterial = Addressables.LoadAssetAsync<Material>(RoR2_DLC1_MajorAndMinorConstruct.matConstructBeamInitial_mat).WaitForCompletion();
         public static GameObject transferDamageImpactEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common_VFX.OmniImpactVFXLarge_prefab).WaitForCompletion().InstantiateClone("scalableImpactEffect");
         private static GameObject megaConstructModel = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_MajorAndMinorConstruct.mdlMegaConstruct_fbx).WaitForCompletion();
+        public static GameObject pulseEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_MajorAndMinorConstruct.MajorConstructMuzzleflashSpawnMinorConstruct_prefab).WaitForCompletion().InstantiateClone("megaConstructBeaconEffect");
 
-        public override void Awake()
+        internal static ConfigEntry<float> damageCoeff;
+        internal static ConfigEntry<float> explosionRadius;
+        internal static ConfigEntry<float> waitDuration;
+        internal static ConfigEntry<float> windupDuration;
+        internal static ConfigEntry<float> cooldown;
+
+        public override void RegisterConfig()
         {
-            base.Awake();
+            base.RegisterConfig();
+            damageCoeff = BindFloat("Core Damage Coefficient", 250f, "The damage coefficient of the core attack", 100f, 500f, 5f, FormatType.Percentage);
+            explosionRadius = BindFloat("Core Explosion Radius", 10f, "The damage radius of the core attack", 6f, 20f, 0.1f, FormatType.Distance);
+            waitDuration = BindFloat("Core Wait Duration", 3.5f, "The amount of time that the Xi Construct will wait between firing and recalling it's Core.", 1f, 6f, 0.01f, FormatType.Time);
+            windupDuration = BindFloat("Core Windup Duration", 0.75f, "The amount of time the Xi Construct will spin up for before firing it's core.", 0.5f, 2f, 0.01f, FormatType.Time);
+            cooldown = BindFloat("Core Cooldown", 15f, "The cooldown of the core launch", 10f, 30f, 0.1f, FormatType.Time);
+        }
+        public override void Initialise()
+        {
+            base.Initialise();
             ModifyProjectilePrefab();
             CreateSkill();
             bodyPrefab.AddComponent<MegaConstructUtilityController>();
-            IL.RoR2.CharacterBody.RecalculateStats += (il) =>
-            {
-                ILCursor c1 = new ILCursor(il);
-                MethodInfo methodInfo = AccessTools.PropertySetter(typeof(CharacterBody), nameof(CharacterBody.maxHealth));
-                if (c1.TryGotoNext(
-                    x => x.MatchCallOrCallvirt(methodInfo)
-                ))
-                {
-                    c1.Emit(OpCodes.Ldarg_0);
-                    c1.EmitDelegate<Func<float, CharacterBody, float>>((originalMaxHealth, characterBody) =>
-                    {
-                        //filters out most normal enemies, stops us from doing GetComponent EVERY time recalc stats is called
-                        if (characterBody.master == null)
-                        {
-                            ProjectileMegaConstructEye component = characterBody.gameObject.GetComponent<ProjectileMegaConstructEye>();
-                            if (component != null && component.ownerBody != null)
-                            {
-                                characterBody.isElite = component.ownerBody.isElite;
-                                return component.ownerBody.maxHealth;
-                            }
-                        }
-                        return originalMaxHealth;
-                    });
-                }
-                else
-                {
-                    Log.Error($"IL.RoR2.CharacterBody.RecalculateStats Cursor c1 failed to match!");
-                }
-            };
             On.RoR2.HealthComponent.TakeDamageProcess += CreateDamageEffectOrb;
             transferDamageImpactEffect.GetComponent<EffectComponent>().applyScale = true;
             ContentAddition.AddEffect(transferDamageImpactEffect);
+
+            EffectComponent effectComponent = pulseEffect.GetComponent<EffectComponent>();
+            effectComponent.applyScale = true;
+            effectComponent.positionAtReferencedTransform = false;
+            effectComponent.parentToReferencedTransform = false;
+            ContentAddition.AddEffect(pulseEffect);
+
         }
         private void CreateDamageEffectOrb(On.RoR2.HealthComponent.orig_TakeDamageProcess orig, HealthComponent self, DamageInfo damageInfo)
         {
@@ -122,11 +117,6 @@ namespace EnemyAbilities.Abilities.XiConstruct
 
             Transform[] modelTransforms = megaConstructModel.GetComponentsInChildren<Transform>();
             GameObject eyeObject = modelTransforms.Where(transform => transform.gameObject.name == "MegaConstructEyeMesh").FirstOrDefault().gameObject;
-            if (eyeObject == null)
-            {
-                Log.Debug($"eyeObject not found!");
-                return;
-            }
             GameObject eyeObjectClone = eyeObject.InstantiateClone("eyeObjectClone");
             MeshRenderer renderer = eyeObjectClone.GetComponent<MeshRenderer>();
             renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.BlendProbes;
@@ -193,7 +183,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
             if (detonate != null)
             {
                 detonate.impactEffect = impactEffect;
-                detonate.blastRadius = coreExplosionRadius.Value;
+                detonate.blastRadius = DetachEyeModule.explosionRadius.Value;
                 detonate.blastDamageCoefficient = 1f;
                 detonate.falloffModel = BlastAttack.FalloffModel.SweetSpot;
                 detonate.bonusBlastForce = new Vector3(0f, 2000f, 0f);
@@ -214,14 +204,17 @@ namespace EnemyAbilities.Abilities.XiConstruct
             stick.ignoreCharacters = true;
             stick.ignoreWorld = false;
             stick.ignoreSteepSlopes = false;
+            stick.alignNormals = true;
 
             CharacterBody xiConstructBody = bodyPrefab.GetComponent<CharacterBody>();
 
+            LanguageAPI.Add("SKELETOGNE_MEGACONSTRUCTCORE_BODY_NAME", "Xi Core");
             CharacterBody body = vagrantProjectile.GetComponent<CharacterBody>();
             body.baseMaxHealth = xiConstructBody.baseMaxHealth;
             body.levelMaxHealth = xiConstructBody.levelMaxHealth;
             body.baseArmor = xiConstructBody.baseArmor;
             body.isChampion = xiConstructBody.isChampion;
+            body.baseNameToken = "SKELETOGNE_MEGACONSTRUCTCORE_BODY_NAME";
 
             ProjectileMegaConstructEye projectileEye = vagrantProjectile.AddComponent<ProjectileMegaConstructEye>();
 
@@ -267,44 +260,33 @@ namespace EnemyAbilities.Abilities.XiConstruct
         }
         public void CreateSkill()
         {
-            FireEyeSkillDef detachEye = ScriptableObject.CreateInstance<FireEyeSkillDef>();
-            (detachEye as ScriptableObject).name = "MegaConstructBodyDetachEye";
-            detachEye.skillName = "MegaConstructDetachEye";
-            detachEye.activationStateMachineName = "Body";
-            detachEye.activationState = ContentAddition.AddEntityState<DetachEye>(out _);
-            detachEye.baseRechargeInterval = coreCooldown.Value;   
-            detachEye.cancelSprintingOnActivation = true;
-            detachEye.isCombatSkill = true;
-            ContentAddition.AddSkillDef(detachEye);
+            SkillDefData skillData = new SkillDefData
+            {
+                objectName = "MegaConstructBodyDetachEye",
+                skillName = "MegaConstructDetachEye",
+                esmName = "Body",
+                activationState = ContentAddition.AddEntityState<DetachEye>(out _),
+                cooldown = cooldown.Value,
+                combatSkill = true
+            };
+            DetachEyeSkillDef detachEye = CreateSkillDef<DetachEyeSkillDef>(skillData);
 
-            SkillFamily skillFamily = ScriptableObject.CreateInstance<SkillFamily>();
-            (skillFamily as ScriptableObject).name = "MegaConstructSecondaryFamily";
-            skillFamily.variants = [new SkillFamily.Variant() { skillDef =  detachEye }];
+            CreateGenericSkill(bodyPrefab, detachEye.skillName, "MegaConstructSecondaryFamily", detachEye, SkillSlot.Secondary);
 
-            GenericSkill skill = bodyPrefab.AddComponent<GenericSkill>();
-            skill.skillName = "MegaConstructDetachEye";
-            skill._skillFamily = skillFamily;
-
-            SkillLocator locator = bodyPrefab.GetComponent<SkillLocator>();
-            locator.secondary = skill;
-
-            ContentAddition.AddSkillFamily(skillFamily);
-
-
-
-            AISkillDriver useSecondary = masterPrefab.AddComponent<AISkillDriver>();
-            useSecondary.customName = "useSecondary";
-            useSecondary.skillSlot = SkillSlot.Secondary;
-            useSecondary.requireSkillReady = true;
-            useSecondary.minDistance = 0f;
-            useSecondary.maxDistance = 150f;
-            useSecondary.moveTargetType = AISkillDriver.TargetType.Custom;
-            useSecondary.movementType = AISkillDriver.MovementType.Stop;
-            useSecondary.aimType = AISkillDriver.AimType.AtMoveTarget;
-            useSecondary.maxUserHealthFraction = 1f;
-            masterPrefab.ReorderSkillDrivers(useSecondary, 7);
-
-            //band aid fix
+            AISkillDriverData driverData = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "useSecondary",
+                skillSlot = SkillSlot.Secondary,
+                requireReady = true,
+                minDistance = 0f,
+                maxDistance = 150f,
+                targetType = AISkillDriver.TargetType.Custom,
+                aimType = AISkillDriver.AimType.AtMoveTarget,
+                movementType = AISkillDriver.MovementType.Stop,
+                desiredIndex = 7
+            };
+            AISkillDriver useSecondary = CreateAISkillDriver(driverData);
             foreach (AISkillDriver aiSkillDriver in masterPrefab.GetComponents<AISkillDriver>())
             {
                 aiSkillDriver.aimType = AISkillDriver.AimType.AtMoveTarget;
@@ -340,7 +322,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
             }
         }
     }
-    public class FireEyeSkillDef : SkillDef
+    public class DetachEyeSkillDef : SkillDef
     {
         private class InstanceData : BaseSkillInstanceData
         {
@@ -394,10 +376,10 @@ namespace EnemyAbilities.Abilities.XiConstruct
             Recall
         }
 
-        private static float baseWindupDuration = coreWindupDuration.Value;
+        private static float baseWindupDuration = DetachEyeModule.windupDuration.Value;
         private float windupDuration;
         private float windupTimer;
-        private static float baseWaitDuration = coreWaitDuration.Value;
+        private static float baseWaitDuration = DetachEyeModule.waitDuration.Value;
         private float waitDuration;
         private float waitTimer;
         private AbilityState abilityState;
@@ -564,7 +546,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
                 Ray aimRay = GetAimRay();
                 Quaternion modelRotation = modelLocator.modelTransform.rotation;
                 DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Secondary, damageType = DamageType.Generic };
-                ProjectileManager.instance.FireProjectile(projectilePrefab, aimRay.origin, modelRotation, characterBody.gameObject, (coreDamageCoeff.Value / 100f) * damageStat, force, RollCrit(), DamageColorIndex.Default, null, speedOverride, combo);
+                ProjectileManager.instance.FireProjectile(projectilePrefab, aimRay.origin, modelRotation, characterBody.gameObject, (DetachEyeModule.damageCoeff.Value / 100f) * damageStat, force, RollCrit(), DamageColorIndex.Default, null, speedOverride, combo);
             }
             ToggleEyeVisual(false);
             ToggleHurtBoxes(false);
@@ -597,18 +579,14 @@ namespace EnemyAbilities.Abilities.XiConstruct
         private Rigidbody projectileRigidbody;
         private float retractTimer;
         private static GameObject explosionEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_MajorAndMinorConstruct.MegaConstructDeathExplosion_prefab).WaitForCompletion();
+        private float effectTimer;
+        private float effectInterval = 0.75f;
+        private ProjectileStickOnImpact stick;
         public void Awake()
         {
             controller = GetComponent<ProjectileController>();
-            if (controller == null)
-            {
-                return;
-            }
             healthComponent = GetComponent<HealthComponent>();
-            if (healthComponent == null)
-            {
-                return;
-            }
+            stick = GetComponent<ProjectileStickOnImpact>();
         }
         public void Start()
         {
@@ -644,6 +622,19 @@ namespace EnemyAbilities.Abilities.XiConstruct
         }
         public void FixedUpdate()
         {
+            if (stick != null)
+            {
+                if (stick.stuck == true)
+                {
+                    effectTimer -= Time.fixedDeltaTime;
+                    if (effectTimer < 0)
+                    {
+                        effectTimer += effectInterval;
+                        Util.PlaySound("Play_majorConstruct_R_pulse", this.gameObject);
+                        EffectManager.SpawnEffect(DetachEyeModule.pulseEffect, new EffectData { origin = transform.position, rotation = Util.QuaternionSafeLookRotation(transform.forward) }, false);
+                    }
+                }
+            }
             if (healthComponent != null && healthComponent.health <= 0)
             {
                 //big explosion!!!
@@ -686,7 +677,6 @@ namespace EnemyAbilities.Abilities.XiConstruct
         public bool validToUseSkill;
         private float targetCheckTimer;
         private static float targetCheckInterval = 0.25f;
-        private AISkillDriver last;
 
         public void Awake()
         {
@@ -706,17 +696,6 @@ namespace EnemyAbilities.Abilities.XiConstruct
         }
         public void FixedUpdate()
         {
-            if (baseAI != null && baseAI.skillDriverEvaluation.dominantSkillDriver != null)
-            {
-                AISkillDriver current = baseAI.skillDriverEvaluation.dominantSkillDriver;
-                if (current != last)
-                {
-                    //Log.Debug($"DRIVER CHANGE: {(last != null ? last.customName : "N/A")} => {current.customName}");
-                    last = current;
-                }
-            }
-
-
             targetCheckTimer -= Time.fixedDeltaTime;
             if (targetCheckTimer < 0)
             {

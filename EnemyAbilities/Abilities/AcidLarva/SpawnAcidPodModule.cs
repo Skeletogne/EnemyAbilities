@@ -12,6 +12,7 @@ using UnityEngine.Networking;
 using MiscFixes.Modules;
 using static EnemyAbilities.PluginConfig;
 using EntityStates.AcidLarva;
+using BepInEx.Configuration;
 
 namespace EnemyAbilities.Abilities.AcidLarva
 {
@@ -26,16 +27,34 @@ namespace EnemyAbilities.Abilities.AcidLarva
         private static GameObject acidPodPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_SulfurPod.SulfurPodBody_prefab).WaitForCompletion().InstantiateClone("acidLarvaPod");
         private static EntityStateConfiguration larvaLeapESC = Addressables.LoadAssetAsync<EntityStateConfiguration>(RoR2_DLC1_AcidLarva.EntityStates_AcidLarva_LarvaLeap_asset).WaitForCompletion();
 
-        public override void Awake()
+        internal static ConfigEntry<float> cooldown;
+        internal static ConfigEntry<float> damage;
+        internal static ConfigEntry<float> lifetime;
+        internal static ConfigEntry<float> useRange;
+        internal static ConfigEntry<float> poisonDuration;
+        internal static ConfigEntry<float> explosionRadius;
+        internal static ConfigEntry<float> travelTime;
+
+        public override void RegisterConfig()
         {
-            base.Awake();
+            base.RegisterConfig();
+            cooldown = BindFloat("Caustic Pod Cooldown", 15f, "Cooldown of the ability", 5f, 30f, 1f, FormatType.Time);
+            damage = BindFloat("Caustic Pod Damage", 100f, "Damage coefficient of the pod explosion", 25f, 300f, 1f, FormatType.Percentage);
+            lifetime = BindFloat("Caustic Pod Lifetime", 30f, "How long the pod lasts before despawning", 10f, 60f, 1f, FormatType.Time);
+            useRange = BindFloat("Caustic Pod Use Range", 30f, "Max range to use the ability", 15f, 50f, 0.1f, FormatType.Distance);
+            poisonDuration = BindFloat("Caustic Pod Poison Duration", 5f, "Duration of the poison effect", 0f, 10f, 0.1f, FormatType.Time);
+            explosionRadius = BindFloat("Caustic Pod Explosion Radius", 12f, "Radius of the pod explosion", 6f, 18f, 0.1f, FormatType.Distance);
+            travelTime = BindFloat("Caustic Pod Travel Time", 1.5f, "Time for the projectile to reach its target", 0.5f, 3f, 0.1f, FormatType.Time);
+        }
+        public override void Initialise()
+        {
+            base.Initialise();
             CreateSkill();
             acidProjectilePrefab.AddComponent<ProjectileSpawnAcidPod>();
             ContentAddition.AddBody(acidPodPrefab);
             ModifyProjectile();
-
-            //friendly-fire damage doubled for monster team
-            larvaLeapESC.TryModifyFieldValue<float>(nameof(LarvaLeap.detonateSelfDamageFraction), (1f/6f));
+            //friendly-fire damage doubled for monster team, so this is 1/3
+            larvaLeapESC.TryModifyFieldValue<float>(nameof(LarvaLeap.detonateSelfDamageFraction), (1f / 6f));
         }
         public void ModifyProjectile()
         {
@@ -66,32 +85,39 @@ namespace EnemyAbilities.Abilities.AcidLarva
             CharacterBody body = acidPodPrefab.GetComponent<CharacterBody>();
             body.baseDamage = 12f;
             body.levelDamage = 2.4f;
+            body.baseNameToken = "SKELETOGNE_ACIDPOD_BODY_NAME";
+            LanguageAPI.Add("SKELETOGNE_ACIDPOD_BODY_NAME", "Caustic Pod");
         }
         public void CreateSkill()
         {
-            SkillDef spawnAcidPod = ScriptableObject.CreateInstance<SkillDef>();
-            (spawnAcidPod as ScriptableObject).name = "AcidLarvaBodySpawnAcidPod";
-            spawnAcidPod.skillName = "AcidLarvaSpawnAcidPod";
-            spawnAcidPod.activationStateMachineName = "Weapon";
-            spawnAcidPod.activationState = ContentAddition.AddEntityState<SpawnAcidPod>(out _);
-            spawnAcidPod.baseRechargeInterval = acidPodCooldown.Value;
-            spawnAcidPod.canceledFromSprinting = false;
-            spawnAcidPod.isCombatSkill = true;
-            ContentAddition.AddSkillDef(spawnAcidPod);
-
-            SkillFamily skillFamily = ScriptableObject.CreateInstance<SkillFamily>();
-            (skillFamily as ScriptableObject).name = "AcidLarvaSecondaryFamily";
-            skillFamily.variants = [new SkillFamily.Variant() { skillDef = spawnAcidPod }];
-
-            GenericSkill skill = bodyPrefab.AddComponent<GenericSkill>();
-            skill.skillName = "AcidLarvaSpawnAcidPod";
-            skill._skillFamily = skillFamily;
-
-            SkillLocator locator = bodyPrefab.GetComponent<SkillLocator>();
-            locator.secondary = skill;
-
-            ContentAddition.AddSkillFamily(skillFamily);
-
+            SkillDefData skillData = new SkillDefData
+            {
+                objectName = "AcidLarvaBodySpawnAcidPod",
+                skillName = "AcidLarvaSpawnAcidPod",
+                esmName = "Weapon",
+                activationState = ContentAddition.AddEntityState<SpawnAcidPod>(out _),
+                cooldown = cooldown.Value,
+                combatSkill = true
+            };
+            SkillDef spawnAcidPod = CreateSkillDef<SkillDef>(skillData);
+            CreateGenericSkill(bodyPrefab, skillData.skillName, "AcidLarvaSecondaryFamily", spawnAcidPod, SkillSlot.Secondary);
+            AISkillDriverData driverData = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "useSecondary",
+                skillSlot = SkillSlot.Secondary,
+                requireReady = true,
+                requiredSkillDef = spawnAcidPod,
+                maxDistance = useRange.Value,
+                selectionRequiresTargetLoS = true,
+                selectionRequiresAimTarget = true,
+                targetType = AISkillDriver.TargetType.CurrentEnemy,
+                movementType = AISkillDriver.MovementType.ChaseMoveTarget,
+                aimType = AISkillDriver.AimType.AtMoveTarget,
+                shouldSprint = true,
+                desiredIndex = 1
+            };
+            CreateAISkillDriver(driverData);
             AISkillDriver strafeWhileWaitingForLeap = masterPrefab.GetComponents<AISkillDriver>().Where(driver => driver.customName == "StrafeWhileWaitingForLeap").FirstOrDefault();
             if (strafeWhileWaitingForLeap != null)
             {
@@ -101,32 +127,17 @@ namespace EnemyAbilities.Abilities.AcidLarva
             {
                 Log.Error($"Could not find StrafeWhileWaitingForLeap ai skill driver!");
             }
-
-            AISkillDriver useSecondary = masterPrefab.AddComponent<AISkillDriver>();
-            useSecondary.customName = "useSecondary";
-            useSecondary.skillSlot = SkillSlot.Secondary;
-            useSecondary.requireSkillReady = true;
-            useSecondary.minDistance = 0f;
-            useSecondary.maxDistance = acidPodMaxUseRange.Value;
-            useSecondary.selectionRequiresTargetLoS = true;
-            useSecondary.selectionRequiresAimTarget = true;
-            useSecondary.moveTargetType = AISkillDriver.TargetType.CurrentEnemy;
-            useSecondary.movementType = AISkillDriver.MovementType.ChaseMoveTarget;
-            useSecondary.aimType = AISkillDriver.AimType.AtMoveTarget;
-            useSecondary.shouldSprint = true;
-            masterPrefab.ReorderSkillDrivers(useSecondary, 1);
         }
         public class SpawnAcidPod : BaseSkillState
         {
-            private static float maxDistance = acidPodMaxUseRange.Value;
-            private static float timeToTarget = acidPodTravelTime.Value;
+            private static float maxDistance = useRange.Value;
+            private static float timeToTarget = travelTime.Value;
             private static float baseDuration = 0.25f;
             public override void OnEnter()
             {
                 base.OnEnter();
                 PlayCrossfade("Gesture, Override", "LarvaLeap", 0.1f);
                 Util.PlaySound("Play_acid_larva_spawn", characterBody.gameObject);
-                Log.Debug($"Using SpawnAcidPod");
                 Ray aimRay = GetAimRay();
                 Vector3 targetPosition = aimRay.GetPoint(maxDistance);
                 bool foundTarget = false;
@@ -202,11 +213,11 @@ namespace EnemyAbilities.Abilities.AcidLarva
 
             public static GameObject explosionEffectPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_SulfurPod.SulfurPodExplosion_prefab).WaitForCompletion();
 
-            public static float explosionRadius = acidPodRange.Value;
+            public static float explosionRadius = useRange.Value;
 
-            public static float explosionDamageCoefficient = acidPodDamage.Value / 100f;
+            public static float explosionDamageCoefficient = damage.Value / 100f;
 
-            public static float explosionProcCoefficient = acidPodPoisonDuration.Value / 10f;
+            public static float explosionProcCoefficient = poisonDuration.Value / 10f;
 
             public static float explosionForce = 1500f;
 

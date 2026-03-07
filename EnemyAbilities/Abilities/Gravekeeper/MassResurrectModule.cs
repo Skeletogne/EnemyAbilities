@@ -6,7 +6,7 @@ using JetBrains.Annotations;
 using R2API;
 using RoR2;
 using RoR2.Skills;
-using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
+using RoR2BepInExPack.GameAssetPaths.Version_1_39_0;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.Networking;
@@ -16,6 +16,7 @@ using System.Linq;
 using MonoMod.Cil;
 using Mono.Cecil.Cil;
 using static EnemyAbilities.PluginConfig;
+using BepInEx.Configuration;
 
 namespace EnemyAbilities.Abilities.Gravekeeper
 {
@@ -40,9 +41,34 @@ namespace EnemyAbilities.Abilities.Gravekeeper
         public static ItemDef GravekeeperGhostItem;
         public static BuffDef GravekeeperArmorBuff;
 
-        public override void Awake()
+        internal static ConfigEntry<bool> wispsOnly;
+        internal static ConfigEntry<float> maxGhosts;
+        internal static ConfigEntry<float> maxGravestones;
+        internal static ConfigEntry<float> cooldown;
+        internal static ConfigEntry<float> gravestoneFuse;
+        internal static ConfigEntry<float> gravestoneRadius;
+        internal static ConfigEntry<float> gravestoneDamageCoeff;
+        internal static ConfigEntry<float> ghostLifetime;
+        internal static ConfigEntry<float> healthThreshold;
+        internal static ConfigEntry<float> armorPerGhost;
+
+        public override void RegisterConfig()
         {
-            base.Awake();
+            base.RegisterConfig();
+            wispsOnly = BindBool("Resurrect Spawns Wisps Only", false, "Enemies killed are resurrected as wisps when the Gravestones shatter.");
+            ghostLifetime = BindFloat("Resurrect Ghost Lifetime", 30f, "The duration over which resurrected ghosts will decay from full health to zero.", 10f, 120f, 1f, FormatType.Time);
+            gravestoneDamageCoeff = BindFloat("Resurrect Gravestone Damage", 200f, "The damage coefficient of the Gravestone explosion.", 100f, 400f, 5f, FormatType.Percentage);
+            gravestoneFuse = BindFloat("Resurrect Gravestone Fuse Duration", 1.25f, "The time between a gravestone embedding and exploding.", 0.5f, 3f, 0.01f, FormatType.Time);
+            gravestoneRadius = BindFloat("Resurrect Gravestone Explosion Radius", 9f, "The radius of the gravestone explosion", 5f, 16f, 0.1f, FormatType.Distance);
+            healthThreshold = BindFloat("Resurrect Health Threshold", 50f, "The health threshold that the Grovetender must be under to use Mass Resurrect", 25f, 100f, 1f, FormatType.Percentage);
+            maxGhosts = BindFloat("Resurrect Max Ghosts", 8f, "The maximum amount of ghosts a Grovetender can have active at once. Gravestones beyond this limit will fire and explode, but not spawn new enemies.", 2f, 20f, 1f);
+            maxGravestones = BindFloat("Resurrect Max Gravestones", 8f, "The maximum amount of gravestones a Grovetender can have active at once. Enemies that die beyond this limit will not create gravestones.", 2f, 20f, 1f);
+            cooldown = BindFloat("Resurrect Cooldown", 60f, "The cooldown of Mass Resurrect", 30f, 120f, 0.1f, FormatType.Time);
+            armorPerGhost = BindFloat("Resurrect Armor Per Ghost", 30f, "The amount of armour that the Grovetender gains per active ghost.", 5f, 100f, 1f);
+        }
+        public override void Initialise()
+        {
+            base.Initialise();
             CreateSkill();
             CreateGhostItem();
             CreateGravekeeperBuff();
@@ -50,7 +76,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             SetUpProjectile();
             GlobalEventManager.onCharacterDeathGlobal += CheckToSpawnGravestone;
             bodyPrefab.AddComponent<GravekeeperResurrectController>();
-            R2API.RecalculateStatsAPI.GetStatCoefficients += RecalculateStatsAPI_GetStatCoefficients;
+            R2API.RecalculateStatsAPI.GetStatCoefficients += GrantArmorStats;
             ghostMaterialClone = new Material(defaultGhostMaterial);
             IL.RoR2.CharacterModel.UpdateRendererMaterials += (il) =>
             {
@@ -77,19 +103,17 @@ namespace EnemyAbilities.Abilities.Gravekeeper
                 }
             };
         }
-
-        private void RecalculateStatsAPI_GetStatCoefficients(CharacterBody sender, RecalculateStatsAPI.StatHookEventArgs args)
+        private void GrantArmorStats(CharacterBody sender, RecalculateStatsAPI.StatHookEventArgs args)
         {
             if (sender.HasBuff(GravekeeperArmorBuff))
             {
                 int count = sender.GetBuffCount(GravekeeperArmorBuff);
                 if (count > 0)
                 {
-                    args.armorAdd += resurrectArmorPerGhost.Value * count;
+                    args.armorAdd += armorPerGhost.Value * count;
                 }
             }
         }
-
         private void CreateGravekeeperBuff()
         {
             GravekeeperArmorBuff = ScriptableObject.CreateInstance<BuffDef>();
@@ -152,41 +176,35 @@ namespace EnemyAbilities.Abilities.Gravekeeper
         }
         private void CreateSkill()
         {
-            ResurrectSkillDef massResurrect = ScriptableObject.CreateInstance<ResurrectSkillDef>();
-            (massResurrect as ScriptableObject).name = "GravekeeperBodyMassResurrect";
-            massResurrect.skillName = "GravekeeperMassResurrect";
-            massResurrect.activationStateMachineName = "Weapon";
-            massResurrect.activationState = ContentAddition.AddEntityState<MassResurrect>(out _);
-            massResurrect.baseRechargeInterval = resurrectCooldown.Value;
-            massResurrect.canceledFromSprinting = false;
-            massResurrect.isCombatSkill = true;
-            ContentAddition.AddSkillDef(massResurrect);
 
-            SkillFamily skillFamily = ScriptableObject.CreateInstance<SkillFamily>();
-            (skillFamily as ScriptableObject).name = "GravekeeperSpecialFamily";
-            skillFamily.variants = [new SkillFamily.Variant() { skillDef = massResurrect }];
-
-            GenericSkill skill = bodyPrefab.AddComponent<GenericSkill>();
-            skill.skillName = "GravekeeperMassResurrect";
-            skill._skillFamily = skillFamily;
-
-            SkillLocator locator = bodyPrefab.GetComponent<SkillLocator>();
-            locator.special = skill;
-
-            ContentAddition.AddSkillFamily(skillFamily);
-
-            AISkillDriver useSpecial = masterPrefab.AddComponent<AISkillDriver>();
-            useSpecial.customName = "useSpecial";
-            useSpecial.skillSlot = SkillSlot.Special;
-            useSpecial.requiredSkill = massResurrect;
-            useSpecial.requireSkillReady = true;
-            useSpecial.minDistance = 0f;
-            useSpecial.maxDistance = 85f;
-            useSpecial.maxUserHealthFraction = (resurrectHealthThreshold.Value / 100f);
-            useSpecial.selectionRequiresOnGround = true;
-            useSpecial.moveTargetType = AISkillDriver.TargetType.CurrentEnemy;
-            useSpecial.movementType = AISkillDriver.MovementType.Stop;
-            masterPrefab.ReorderSkillDrivers(useSpecial, 0);
+            SkillDefData skillData = new SkillDefData
+            {
+                objectName = "GravekeeperBodyMassResurrect",
+                skillName = "GravekeeperMassResurrect",
+                esmName = "Weapon",
+                activationState = ContentAddition.AddEntityState<MassResurrect>(out _),
+                cooldown = cooldown.Value,
+                combatSkill = true
+            };
+            ResurrectSkillDef massResurrect = CreateSkillDef<ResurrectSkillDef>(skillData);
+            CreateGenericSkill(bodyPrefab, massResurrect.skillName, "GravekeeperSpecialFamily", massResurrect, SkillSlot.Special);
+            AISkillDriverData driverData = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "useSpecial",
+                skillSlot = SkillSlot.Special,
+                requiredSkillDef = massResurrect,
+                requireReady = true,
+                minDistance = 0f,
+                maxDistance = 85f,
+                maxHealthFraction = (healthThreshold.Value / 100f),
+                targetType = AISkillDriver.TargetType.CurrentEnemy,
+                movementType = AISkillDriver.MovementType.ChaseMoveTarget,
+                aimType = AISkillDriver.AimType.AtMoveTarget,
+                driverUpdateTimerOverride = 3f,
+                desiredIndex = 0
+            };
+            CreateAISkillDriver(driverData);
         }
         private void SetUpProjectile()
         {
@@ -241,9 +259,9 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             impact.destroyOnEnemy = false;
             impact.impactOnWorld = true;
             impact.timerAfterImpact = true;
-            impact.lifetimeAfterImpact = resurrectGravestoneFuse.Value;
+            impact.lifetimeAfterImpact = gravestoneFuse.Value;
             impact.impactEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_LemurianBruiser.OmniExplosionVFXLemurianBruiserFireballImpact_prefab).WaitForCompletion();
-            impact.blastRadius = resurrectGravestoneExplosionRadius.Value;
+            impact.blastRadius = gravestoneRadius.Value;
             impact.maxDistance = 125f;
             ProjectileSimple simple = gravestoneProjectile.GetComponent<ProjectileSimple>();
             simple.lifetime = 10f;
@@ -350,7 +368,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
                     {
                         projectilePrefab = gravestoneProjectile,
                         crit = RollCrit(),
-                        damage = (resurrectGravestoneDamageCoeff.Value / 100f) * damageStat,
+                        damage = (gravestoneDamageCoeff.Value / 100f) * damageStat,
                         damageColorIndex = DamageColorIndex.Default,
                         damageTypeOverride = DamageTypeCombo.GenericSpecial,
                         force = 1500f,
@@ -405,7 +423,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
                 {
                     continue;
                 }
-                if (controller.gravestoneList.Count >= (int)resurrectMaxGravestones.Value)
+                if (controller.gravestoneList.Count >= (int)maxGravestones.Value)
                 {
                     continue;
                 }
@@ -508,7 +526,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             FloatingGravestoneController gravestoneController = gravestoneInstance.GetComponent<FloatingGravestoneController>();
             gravestoneController.boundResurrectController = this;
             BodyIndex bodyIndex = victimBody.bodyIndex;
-            if (resurrectWispsOnly.Value == true)
+            if (MassResurrectModule.wispsOnly.Value == true)
             {
                 HullClassification hull = victimBody.hullClassification;
                 if (hull == HullClassification.Golem || hull == HullClassification.BeetleQueen)
@@ -719,7 +737,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
                 EffectManager.SpawnEffect(impactEffect, new EffectData { origin = this.gameObject.transform.position, scale = 8f, rotation = Quaternion.identity }, true);
                 Util.PlaySound("Play_bellBody_attackLand", gameObject);
                 indicatorInstance = Instantiate(indicator, gameObject.transform.position, Util.QuaternionSafeLookRotation(impactNormal));
-                indicatorInstance.transform.localScale = Vector3.one * resurrectGravestoneExplosionRadius.Value;
+                indicatorInstance.transform.localScale = Vector3.one * MassResurrectModule.gravestoneRadius.Value;
                 TeamAreaIndicator teamAreaIndicator = indicatorInstance.GetComponent<TeamAreaIndicator>();
                 if (teamAreaIndicator != null)
                 {
@@ -742,7 +760,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             {
                 return;
             }
-            if (resurrectController == null || resurrectController.boundGhosts.Count >= (int)resurrectMaxGhosts.Value)
+            if (resurrectController == null || resurrectController.boundGhosts.Count >= (int)MassResurrectModule.maxGhosts.Value)
             {
                 return;
             }
@@ -803,7 +821,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             }
             void PreSpawnSetup(CharacterMaster newMaster)
             {
-                newMaster.inventory.GiveItemPermanent(RoR2Content.Items.HealthDecay, (int)resurrectGhostLifetime.Value);
+                newMaster.inventory.GiveItemPermanent(RoR2Content.Items.HealthDecay, (int)MassResurrectModule.ghostLifetime.Value);
                 newMaster.inventory.GiveItemPermanent(MassResurrectModule.GravekeeperGhostItem, 1);
             }
         }

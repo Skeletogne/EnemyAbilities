@@ -69,10 +69,6 @@ namespace EnemyAbilities
             // sanity check
             skills = master.GetComponents<AISkillDriver>();
             var newTarget = skills.FirstOrDefault(s => s.customName == targetName);
-            if (newTarget != null && Array.IndexOf(skills, newTarget) == targetIdx)
-                Log.Debug($"Successfully set {targetName} to {targetIdx}");
-            else
-                Log.Error($"Done fucked it up on {targetName} with {targetIdx}");
 
             // restore overrides
             if (overrides.Any())
@@ -85,12 +81,12 @@ namespace EnemyAbilities
                         var skillComponent = skills.FirstOrDefault(s => s.customName == target);
                         if (skillComponent == null)
                         {
-                            Log.Error($"Unable to reset skill override for {skill.customName} targeting {target}");
+                            //Log.Error($"Unable to reset skill override for {skill.customName} targeting {target}");
                         }
                         else
                         {
                             skill.nextHighPriorityOverride = skillComponent;
-                            Log.Debug($"successfully reset override for {skill.customName} targeting {target}");
+                            //Log.Debug($"successfully reset override for {skill.customName} targeting {target}");
                         }
                     }
                 }
@@ -344,9 +340,5 @@ namespace EnemyAbilities
                 }
             }
         }
-    }
-    public static class Utils
-    {
-
     }
 }

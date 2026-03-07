@@ -6,10 +6,11 @@ using JetBrains.Annotations;
 using R2API;
 using RoR2;
 using RoR2.Skills;
-using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
+using RoR2BepInExPack.GameAssetPaths.Version_1_39_0;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using static EnemyAbilities.PluginConfig;
+using BepInEx.Configuration;
 
 namespace EnemyAbilities.Abilities.Vulture
 {
@@ -18,9 +19,25 @@ namespace EnemyAbilities.Abilities.Vulture
     {
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Vulture.VultureBody_prefab).WaitForCompletion();
         private static GameObject masterPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Vulture.VultureMaster_prefab).WaitForCompletion();
-        public override void Awake()
+        internal static ConfigEntry<float> damageCoeff;
+        internal static ConfigEntry<float> hitboxScale;
+        internal static ConfigEntry<bool> inflictsBleed;
+        internal static ConfigEntry<float> predictionTime;
+        internal static ConfigEntry<float> selfStunDuration;
+        internal static ConfigEntry<float> cooldown;
+        public override void RegisterConfig()
         {
-            base.Awake();
+            base.RegisterConfig();
+            predictionTime = BindFloat("Swoop Prediction Duration", 1.5f, "Affects how far into the future the Alloy Vulture will predict when swooping towards the player. Increasing the value increases the duration of the attack, and slows the speed at which the Vulture travels.", 1f, 3f, 0.1f, FormatType.Time);
+            hitboxScale = BindFloat("Swoop Hitbox Scale", 100f, "Affects how large the hitbox for swoop is.", 50f, 200f, 1f, FormatType.Percentage);
+            damageCoeff = BindFloat("Swoop Damage Coefficient", 125f, "The damage coefficient of the swoop attack", 100f, 300f, 5f, FormatType.Percentage);
+            selfStunDuration = BindFloat("Swoop Stun Duration on Impact", 2f, "How long the Alloy Vulture stuns itself for upon hitting terrain at high speed.", 0f, 4f, 0.1f, FormatType.Time);
+            inflictsBleed = BindBool("Swoop Inflicts Bleed", true, "Allows Alloy Vultures to inflict 1 stack of bleed for 3 seconds when swoop hits.");
+            cooldown = BindFloat("Swoop Cooldown", 12f, "The cooldown of the swoop ability", 8f, 30f, 0.1f, FormatType.Time);
+        }
+        public override void Initialise()
+        {
+            base.Initialise();
             TargetingAndPredictionController controller = bodyPrefab.AddComponent<TargetingAndPredictionController>();
             controller.manualTrackingMaxDistance = 100f;
             controller.manualTrackingMaxAngle = 360f;
@@ -32,7 +49,7 @@ namespace EnemyAbilities.Abilities.Vulture
             ModelLocator modelLocator = bodyPrefab.GetComponent<ModelLocator>();
             if (modelLocator != null && modelLocator.modelTransform != null)
             {
-                CreateHitBoxAndGroup(modelLocator.modelTransform, "VultureMelee", new Vector3(0f, -2f, 0f), new Vector3(30f, 30f, 30f) * (swoopHitboxScale.Value / 100f));
+                CreateHitBoxAndGroup(modelLocator.modelTransform, "VultureMelee", new Vector3(0f, -2f, 0f), new Vector3(30f, 30f, 30f) * (hitboxScale.Value / 100f));
             }
         }
         private void CreateHitBoxAndGroup(Transform modelTransform, string hitBoxGroupName, Vector3 localPosition, Vector3 localScale, string hitBoxGroupObjName = "", string hitBoxObjName = "")
@@ -55,41 +72,35 @@ namespace EnemyAbilities.Abilities.Vulture
         }
         public void CreateSkill()
         {
-            SwoopSkillDef swoop = ScriptableObject.CreateInstance<SwoopSkillDef>();
-            (swoop as ScriptableObject).name = "VultureBodySwoop";
-            swoop.skillName = "VultureSwoop";
-            swoop.activationStateMachineName = "Body";
-            swoop.activationState = ContentAddition.AddEntityState<SwoopWindup>(out _);
-            swoop.baseRechargeInterval = swoopCooldown.Value;
-            swoop.cancelSprintingOnActivation = true;
-            swoop.isCombatSkill = true;
-            ContentAddition.AddSkillDef(swoop);
-
-            SkillFamily skillFamily = ScriptableObject.CreateInstance<SkillFamily>();
-            (skillFamily as ScriptableObject).name = "VultureSecondaryFamily";
-            skillFamily.variants = [new SkillFamily.Variant(){ skillDef = swoop }];
-            
-            GenericSkill skill = bodyPrefab.AddComponent<GenericSkill>();
-            skill.skillName = "VultureSwoop";
-            skill._skillFamily = skillFamily;
-
-            SkillLocator locator = bodyPrefab.GetComponent<SkillLocator>();
-            locator.secondary = skill;
-
-            ContentAddition.AddSkillFamily(skillFamily);
-
-            AISkillDriver useSecondary = masterPrefab.AddComponent<AISkillDriver>();
-            useSecondary.customName = "strafeAndUseSecondary";
-            useSecondary.skillSlot = SkillSlot.Secondary;
-            useSecondary.requiredSkill = swoop;
-            useSecondary.requireSkillReady = true;
-            useSecondary.minDistance = 25f;
-            useSecondary.maxDistance = 50f;
-            useSecondary.moveTargetType = AISkillDriver.TargetType.CurrentEnemy;
-            useSecondary.movementType = AISkillDriver.MovementType.StrafeMovetarget;
-            masterPrefab.ReorderSkillDrivers(useSecondary, 2);
-
+            SkillDefData skillDefData = new SkillDefData
+            {
+                objectName = "VultureBodySwoop",
+                skillName = "VultureSwoop",
+                esmName = "Body",
+                activationState = ContentAddition.AddEntityState<SwoopWindup>(out _),
+                cooldown = cooldown.Value,
+                combatSkill = true
+            };
+            SwoopSkillDef swoop = CreateSkillDef<SwoopSkillDef>(skillDefData);
             ContentAddition.AddEntityState<Swoop>(out _);
+            CreateGenericSkill(bodyPrefab, swoop.skillName, "VultureSecondaryFamily", swoop, SkillSlot.Secondary);
+
+            AISkillDriverData driverData = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "strafeAndUseSecondary",
+                skillSlot = SkillSlot.Secondary,
+                requiredSkillDef = swoop,
+                requireReady = true,
+                minDistance = 25f,
+                maxDistance = 50f,
+                targetType = AISkillDriver.TargetType.CurrentEnemy,
+                movementType = AISkillDriver.MovementType.StrafeMovetarget,
+                desiredIndex = 2
+            };
+            CreateAISkillDriver(driverData);
+
+
         }
     }
     public class SwoopSkillDef : SkillDef
@@ -202,7 +213,7 @@ namespace EnemyAbilities.Abilities.Vulture
     {
         //total time if uninterrupted is prediction + swoop * 2 + recover
         public static float predictionDuration = 0.5f;
-        private static float swoopDurationTilTarget = swoopPredictionTime.Value;
+        private static float swoopDurationTilTarget = SwoopModule.predictionTime.Value;
         private static float recoverDuration = 0.5f;
         private static GameObject slashEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Croco.CrocoSlash_prefab).WaitForCompletion();
         private static GameObject hitEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common_VFX.OmniImpactVFXSlash_prefab).WaitForCompletion();
@@ -235,7 +246,7 @@ namespace EnemyAbilities.Abilities.Vulture
         private bool finishedSwoop = false;
         private bool pastTarget = false;
 
-        private float damageCoefficient = swoopDamageCoeff.Value / 100f;
+        private float damageCoefficient = SwoopModule.damageCoeff.Value / 100f;
         private float procCoefficient = 1f;
 
         private float crashAngle = 40f;
@@ -275,7 +286,7 @@ namespace EnemyAbilities.Abilities.Vulture
             attack.hitEffectPrefab = hitEffect;
             attack.isCrit = RollCrit();
             attack.procCoefficient = procCoefficient;
-            DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Secondary, damageType = (swoopInflictsBleed.Value ? DamageType.BleedOnHit : DamageType.Generic) };
+            DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Secondary, damageType = (SwoopModule.inflictsBleed.Value ? DamageType.BleedOnHit : DamageType.Generic) };
             attack.damageType = combo;
             attack.hitBoxGroup = FindHitBoxGroup("VultureMelee");
             attack.forceVector = base.characterDirection.forward * 500f;
@@ -294,7 +305,7 @@ namespace EnemyAbilities.Abilities.Vulture
                 SetStateOnHurt state = characterBody.gameObject.GetComponent<SetStateOnHurt>();
                 if (state != null)
                 {
-                    state.SetStun(swoopStunDuration.Value);
+                    state.SetStun(SwoopModule.selfStunDuration.Value);
                 }
             }
         }

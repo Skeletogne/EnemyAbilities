@@ -2,31 +2,41 @@
 using RoR2;
 using R2API;
 using RoR2.Skills;
-using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
+using RoR2BepInExPack.GameAssetPaths.Version_1_39_0;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using RoR2.CharacterAI;
 using JetBrains.Annotations;
 using RoR2.Projectile;
-using static EnemyAbilities.PluginConfig;
+using BepInEx.Configuration;
 
 namespace EnemyAbilities.Abilities.ClayBruiser
 {
-    //made this before I learnt Trajectory exists :(((
-
     [EnemyAbilities.ModuleInfo("Cluster Grenade", "Gives Clay Templars a new utility:\n- Cluster Grenade: Used when a Clay Templar has seen a player recently but doesn't have line of sight, fires a barrage of five Tar Grenades in an arc towards the player.", "Clay Templar", true)]
     public class ClusterGrenadeModule : BaseModule
     {
         public static GameObject projectilePrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Commando.CommandoGrenadeProjectile_prefab).WaitForCompletion().InstantiateClone("clayGrenadeProjectile");
-
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_ClayBruiser.ClayBruiserBody_prefab).WaitForCompletion();
         private static GameObject masterPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_ClayBruiser.ClayBruiserMaster_prefab).WaitForCompletion();
         private static GameObject ghostPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Commando.CommandoGrenadeGhost_prefab).WaitForCompletion().InstantiateClone("clayGrenadeProjectileGhost");
         private static GameObject explosionPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_ClayGrenadier.ClayGrenadierBarrelExplosion_prefab).WaitForCompletion();
 
-        public override void Awake()
+        internal static ConfigEntry<float> grenadeCount;
+        internal static ConfigEntry<float> grenadeDamageCoeff;
+        internal static ConfigEntry<float> grenadeExplosionRadius;
+        internal static ConfigEntry<float> grenadeCooldown;
+
+        public override void RegisterConfig()
         {
-            base.Awake();
+            base.RegisterConfig();
+            grenadeCount = BindFloat("Grenade Count", 5f, "The number of grenades the Templar fires on ability use.", 1f, 10f, 1f);
+            grenadeCooldown = BindFloat("Grenade Cooldown", 10f, "Cooldown before the ability can activated again.", 5f, 30f, 0.1f, PluginConfig.FormatType.Time);
+            grenadeDamageCoeff = BindFloat("Grenade Damage Coefficient", 100f, "Percentage multiplier to the Templar's Damage to get explosion damage. Uses falloff model sweet spot", 50f, 500f, 5f, PluginConfig.FormatType.Percentage);
+            grenadeExplosionRadius = BindFloat("Grenade Explosion Radius", 6f, "Grenade Explosion radius in metres", 1f, 10f, 1f, PluginConfig.FormatType.Distance);
+        }
+        public override void Initialise()
+        {
+            base.Initialise();
             CreateSkill();
             SetUpProjectilePrefab();
             bodyPrefab.AddComponent<ClayBruiserUtilityController>();
@@ -61,42 +71,34 @@ namespace EnemyAbilities.Abilities.ClayBruiser
         }
         private void CreateSkill()
         {
-            ClusterGrenadeSkillDef clusterGrenade = ScriptableObject.CreateInstance<ClusterGrenadeSkillDef>();
-            (clusterGrenade as ScriptableObject).name = "ClayBruiserBodyClusterGrenade";
-            clusterGrenade.skillName = "ClayBruiserClusterGrenade";
-            clusterGrenade.activationStateMachineName = "Weapon";
-            clusterGrenade.activationState = ContentAddition.AddEntityState<FireClusterGrenades>(out _);
-            clusterGrenade.baseRechargeInterval = grenadeCooldown.Value;
-            clusterGrenade.cancelSprintingOnActivation = true;
-            clusterGrenade.isCombatSkill = true;
-            ContentAddition.AddSkillDef(clusterGrenade);
-
-            SkillFamily skillFamily = ScriptableObject.CreateInstance<SkillFamily>();
-            (skillFamily as ScriptableObject).name = "ClayBruiserUtilityFamily";
-            skillFamily.variants = [new SkillFamily.Variant() { skillDef = clusterGrenade }];
-
-            GenericSkill skill = bodyPrefab.AddComponent<GenericSkill>();
-            skill.skillName = "ClayBruiserClusterGrenade";
-            skill._skillFamily = skillFamily;
-
-            SkillLocator locator = bodyPrefab.GetComponent<SkillLocator>();
-            locator.utility = skill;
-
-            ContentAddition.AddSkillFamily(skillFamily);
-
-            //skillDriver: when we don't have line of sight but are in range to shoot - fire
-
-            AISkillDriver useUtility = masterPrefab.AddComponent<AISkillDriver>();
-            useUtility.customName = "chaseAndUseUtility";
-            useUtility.skillSlot = SkillSlot.Utility;
-            useUtility.requireSkillReady = true;
-            useUtility.minDistance = 10f;
-            useUtility.maxDistance = 75f;
-            useUtility.selectionRequiresTargetLoS = false;
-            useUtility.moveTargetType = AISkillDriver.TargetType.CurrentEnemy;
-            useUtility.movementType = AISkillDriver.MovementType.ChaseMoveTarget;
-            masterPrefab.ReorderSkillDrivers(useUtility, 2);
+            SkillDefData skillData = new SkillDefData
+            {
+                objectName = "ClayBruiserBodyClusterGrenade",
+                skillName = "ClayBruiserClusterGrenade",
+                esmName = "Weapon",
+                activationState = ContentAddition.AddEntityState<FireClusterGrenades>(out _),
+                cooldown = grenadeCooldown.Value,
+                combatSkill = true
+            };
+            ClusterGrenadeSkillDef clusterGrenade = CreateSkillDef<ClusterGrenadeSkillDef>(skillData);
+            CreateGenericSkill(bodyPrefab, clusterGrenade.skillName, "ClayBruiserUtilityFamily", clusterGrenade, SkillSlot.Utility);
+            AISkillDriverData driverData = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "chaseAndUseUtility",
+                skillSlot = SkillSlot.Utility,
+                requireReady = true,
+                minDistance = 10f,
+                maxDistance = 75f,
+                selectionRequiresTargetLoS = false,
+                aimType = AISkillDriver.AimType.AtCurrentEnemy,
+                movementType = AISkillDriver.MovementType.ChaseMoveTarget,
+                targetType = AISkillDriver.TargetType.CurrentEnemy,
+                desiredIndex = 2
+            };
+            CreateAISkillDriver(driverData);
         }
+
     }
     public class ClusterGrenadeSkillDef : SkillDef
     {
@@ -132,7 +134,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
 
         private float duration;
         private ClayBruiserUtilityController controller;
-        private int grenadeCount = (int)PluginConfig.grenadeCount.Value;
+        private int grenadeCount = (int)ClusterGrenadeModule.grenadeCount.Value;
         private int grenadeIndex = 0;
         private float grenadeFireTimer = 0f;
         private float grenadeFireInterval;
@@ -174,7 +176,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
                 if (base.isAuthority)
                 {
                     DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Utility, damageType = DamageType.ClayGoo };
-                    ProjectileManager.instance.FireProjectile(ClusterGrenadeModule.projectilePrefab, characterBody.aimOrigin, Util.QuaternionSafeLookRotation(direction + randomDeviation), characterBody.gameObject, damageStat * (grenadeDamageCoeff.Value / 100f), 1000f, RollCrit(), DamageColorIndex.Default, null, speedOverride, combo);
+                    ProjectileManager.instance.FireProjectile(ClusterGrenadeModule.projectilePrefab, characterBody.aimOrigin, Util.QuaternionSafeLookRotation(direction + randomDeviation), characterBody.gameObject, damageStat * (ClusterGrenadeModule.grenadeDamageCoeff.Value / 100f), 1000f, RollCrit(), DamageColorIndex.Default, null, speedOverride, combo);
                 }
                 grenadeIndex++;
             }
@@ -239,7 +241,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
             {
                 bool success = false;
                 arcCheckTimer += arcCheckInterval;
-                for (int t = travelTimeMin; t < travelTimeMax + 1 ; t += travelTimeInterval)
+                for (int t = travelTimeMin; t < travelTimeMax + 1; t += travelTimeInterval)
                 {
                     Vector3 launchVelocity;
                     bool arcValid = IsBallisticArcValid(t, out launchVelocity);

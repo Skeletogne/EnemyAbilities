@@ -1,29 +1,28 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using BepInEx.Configuration;
 using EntityStates;
 using R2API;
 using RoR2;
 using RoR2.CharacterAI;
 using RoR2.Scripts.GameBehaviors;
 using RoR2.Skills;
-using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
+using RoR2BepInExPack.GameAssetPaths.Version_1_39_0;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.Networking;
-using static EnemyAbilities.PluginConfig;
 
 //have mercy on your soul, for my code will not
 
 namespace EnemyAbilities.Abilities.IronHauler
 {
-
     [EnemyAbilities.ModuleInfo("Tractor Beam & Fling", "Gives Solus Transporters a pair of new utility abilities:\n- Tractor Beam: The Transporter picks up and manoeuvres a unit that is valid for cargo.\n- Fling: Toss it's cargo at it's target. Deals impact damage based on the cargo's weight.\nEnabling this will also grant all Solus Transporters a movespeed and aim-tracking buff.", "Solus Transporter", true)]
     public class TractorBeamModule : BaseModule
     {
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC3_IronHauler.IronHaulerBody_prefab).WaitForCompletion();
         private static GameObject masterPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC3_IronHauler.IronHaulerMaster_prefab).WaitForCompletion();
-        public static SkillDef tractorBeamSkillDef;
-        public static SkillDef flingSkillDef;
+        public static SkillDef tractorBeam;
+        public static SkillDef fling;
         public static BuffDef cargoBuffDef;
         public static float maxCargoChaseDistance = 125f;
         public static GameObject tetherPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_moon2.BloodSiphonTetherVFX_prefab).WaitForCompletion().InstantiateClone("tractorBeamTetherVFX");
@@ -34,9 +33,30 @@ namespace EnemyAbilities.Abilities.IronHauler
         private static Material laserMaterial = Addressables.LoadAssetAsync<Material>(RoR2_DLC1_MajorAndMinorConstruct.matMajorConstructBeam_mat).WaitForCompletion();
         public static GameObject sphereVFX;
 
-        public override void Awake()
+        internal static ConfigEntry<float> maxRange;
+        internal static ConfigEntry<float> timeToTarget;
+        internal static ConfigEntry<float> baseDamageCoeff;
+        internal static ConfigEntry<float> damageCoeffPerMass;
+        internal static ConfigEntry<float> explosionRadius;
+        internal static ConfigEntry<bool> canFlingElites;
+        internal static ConfigEntry<bool> canFlingBosses;
+        internal static ConfigEntry<float> cooldown;
+
+        public override void RegisterConfig()
         {
-            base.Awake();
+            base.RegisterConfig();
+            maxRange = BindFloat("Max Fling Range", 150f, "The maximum range at which a Solus Transporter can use it's fling ability", 70f, 200f, 1f, PluginConfig.FormatType.Distance);
+            timeToTarget = BindFloat("Fling Time to Target", 3f, "The amount of time it takes a flung enemy to reach it's intended target. Higher values will yield higher arc heights.", 1f, 5f, 0.1f, PluginConfig.FormatType.Time);
+            explosionRadius = BindFloat("Explosion Radius", 12f, "The explosion radius of a flung enemy landing.", 8f, 20f, 0.1f, PluginConfig.FormatType.Distance);
+            baseDamageCoeff = BindFloat("Fling Damage Coefficient", 300f, "The base explosion damage of a flung enemy hitting the ground.", 100f, 600f, 5f, PluginConfig.FormatType.Percentage);
+            damageCoeffPerMass = BindFloat("Fling Damage Coefficient per Unit Mass", 0.5f, "The value that is multiplied by the weight of the unit, before being added to the percentage damage coefficient. (e.g. a gup weighs 500, so a base damage coefficient of 200% with a damage per unit mass of 0.5 would yield 200% + 0.5 * 500% = 450%.", 0f, 1f, 0.01f, PluginConfig.FormatType.Percentage);
+            canFlingElites = BindBool("Can Fling Elites", true, "Allows Solus Transporters to pick up and fling elite enemies");
+            canFlingBosses = BindBool("Can Fling Bosses", false, "Allows Solus Transporters to pick up and fling bosses. UNTESTED - ENABLE AT YOUR OWN PERIL!");
+            cooldown = BindFloat("Tractor Beam Cooldown", 12f, "The Cooldown for the Tractor Beam (which starts after an enemy is flung)", 5f, 30f, 0.1f, PluginConfig.FormatType.Time);
+        }
+        public override void Initialise()
+        {
+            base.Initialise();
             bodyPrefab.AddComponent<IronHaulerDriverController>();
             CreateSkills();
             CreateBuffDef();
@@ -104,118 +124,125 @@ namespace EnemyAbilities.Abilities.IronHauler
         }
         public void CreateSkills()
         {
-
-            tractorBeamSkillDef = ScriptableObject.CreateInstance<SkillDef>();
-            (tractorBeamSkillDef as ScriptableObject).name = "IronHaulerBodyTractorBeam";
-            tractorBeamSkillDef.skillName = "IronHaulerTractorBeam";
-            tractorBeamSkillDef.activationStateMachineName = "Weapon";
-            tractorBeamSkillDef.activationState = ContentAddition.AddEntityState<TractorBeam>(out _);
-            tractorBeamSkillDef.baseRechargeInterval = tractorBeamCooldown.Value;
-            tractorBeamSkillDef.cancelSprintingOnActivation = true;
-            tractorBeamSkillDef.isCombatSkill = true;
-            tractorBeamSkillDef.beginSkillCooldownOnSkillEnd = false;
-            ContentAddition.AddSkillDef(tractorBeamSkillDef);
-
-            flingSkillDef = ScriptableObject.CreateInstance<SkillDef>();
-            (flingSkillDef as ScriptableObject).name = "IronHaulerBodyFling";
-            flingSkillDef.skillName = "IronHaulerFling";
-            flingSkillDef.activationStateMachineName = "Weapon";
-            flingSkillDef.activationState = ContentAddition.AddEntityState<Fling>(out _);
-            flingSkillDef.baseRechargeInterval = 1f;
-            flingSkillDef.cancelSprintingOnActivation = true;
-            flingSkillDef.isCombatSkill = true;
-            ContentAddition.AddSkillDef(flingSkillDef);
-
-            SkillFamily skillFamily = ScriptableObject.CreateInstance<SkillFamily>();
-            (skillFamily as ScriptableObject).name = "IronHaulerUtilityFamily";
-            skillFamily.variants = [new SkillFamily.Variant() { skillDef = tractorBeamSkillDef }];
-
-            GenericSkill skill = bodyPrefab.AddComponent<GenericSkill>();
-            skill.skillName = "IronHaulerTractorBeam";
-            skill._skillFamily = skillFamily;
-
-            SkillLocator locator = bodyPrefab.GetComponent<SkillLocator>();
-            locator.utility = skill;
-
-            ContentAddition.AddSkillFamily(skillFamily);
-
-            AISkillDriver[] skillDrivers = masterPrefab.GetComponents<AISkillDriver>();
-            foreach (AISkillDriver driver in skillDrivers)
+            SkillDefData skillData1 = new SkillDefData
             {
-                driver.moveInputScale = 1f;
-            }
-            AISkillDriver fleeWithCargo = masterPrefab.AddComponent<AISkillDriver>();
-            fleeWithCargo.customName = "fleeWithCargo";
-            fleeWithCargo.skillSlot = SkillSlot.None;
-            fleeWithCargo.minDistance = 0f;
-            fleeWithCargo.maxDistance = 40f;
-            fleeWithCargo.moveTargetType = AISkillDriver.TargetType.Custom;
-            fleeWithCargo.selectionRequiresTargetLoS = false;
-            fleeWithCargo.movementType = AISkillDriver.MovementType.FleeMoveTarget;
-            fleeWithCargo.moveInputScale = 1f;
-            masterPrefab.ReorderSkillDrivers(fleeWithCargo, 0);
+                objectName = "IronHaulerBodyTractorBeam",
+                skillName = "IronHaulerTractorBeam",
+                esmName = "Weapon",
+                activationState = ContentAddition.AddEntityState<TractorBeam>(out _),
+                cooldown = cooldown.Value,
+                combatSkill = false
+            };
+            tractorBeam = CreateSkillDef<SkillDef>(skillData1);
+            SkillDefData skillData2 = new SkillDefData
+            {
+                objectName = "IronHaulerBodyFling",
+                skillName = "IronHaulerFling",
+                esmName = "Weapon",
+                activationState = ContentAddition.AddEntityState<Fling>(out _),
+                cooldown = 1f,
+                combatSkill = true
+            };
+            fling = CreateSkillDef<SkillDef>(skillData2);
 
-            AISkillDriver strafeWithCargo = masterPrefab.AddComponent<AISkillDriver>();
-            strafeWithCargo.customName = "strafeWithCargo";
-            strafeWithCargo.skillSlot = SkillSlot.Utility;
-            strafeWithCargo.requiredSkill = flingSkillDef;
-            strafeWithCargo.minDistance = 0f;
-            strafeWithCargo.maxDistance = 60f;
-            strafeWithCargo.moveTargetType = AISkillDriver.TargetType.Custom;
-            strafeWithCargo.activationRequiresAimTargetLoS = true;
-            strafeWithCargo.selectionRequiresTargetLoS = false;
-            strafeWithCargo.movementType = AISkillDriver.MovementType.StrafeMovetarget;
-            strafeWithCargo.moveInputScale = 0.75f;
-            masterPrefab.ReorderSkillDrivers(strafeWithCargo, 1);
+            CreateGenericSkill(bodyPrefab, tractorBeam.skillName, "IronHaulerUtilityFamily", tractorBeam, SkillSlot.Utility);
 
-            AISkillDriver chaseWithCargo = masterPrefab.AddComponent<AISkillDriver>();
-            chaseWithCargo.customName = "chaseWithCargo";
-            chaseWithCargo.skillSlot = SkillSlot.Utility;
-            chaseWithCargo.requiredSkill = flingSkillDef;
-            chaseWithCargo.minDistance = 0f;
-            chaseWithCargo.maxDistance = flingMaxRange.Value;
-            chaseWithCargo.moveTargetType = AISkillDriver.TargetType.Custom;
-            chaseWithCargo.activationRequiresAimTargetLoS = true;
-            chaseWithCargo.selectionRequiresTargetLoS = false;
-            chaseWithCargo.movementType = AISkillDriver.MovementType.ChaseMoveTarget;
-            chaseWithCargo.moveInputScale = 0.75f;
-            masterPrefab.ReorderSkillDrivers(chaseWithCargo, 2);
-
-            AISkillDriver chaseWithCargoFar = masterPrefab.AddComponent<AISkillDriver>();
-            chaseWithCargoFar.customName = "chaseWithCargoFar";
-            chaseWithCargoFar.skillSlot = SkillSlot.None;
-            chaseWithCargoFar.minDistance = 0f;
-            chaseWithCargoFar.maxDistance = Mathf.Infinity;
-            chaseWithCargoFar.moveTargetType = AISkillDriver.TargetType.Custom;
-            chaseWithCargoFar.selectionRequiresTargetLoS = false;
-            chaseWithCargoFar.movementType = AISkillDriver.MovementType.ChaseMoveTarget;
-            chaseWithCargoFar.moveInputScale = 0.75f;
-            masterPrefab.ReorderSkillDrivers(chaseWithCargoFar, 3);
-
-            AISkillDriver useUtilityOnCargoTarget = masterPrefab.AddComponent<AISkillDriver>();
-            useUtilityOnCargoTarget.customName = "useUtilityOnCargoTarget";
-            useUtilityOnCargoTarget.skillSlot = SkillSlot.Utility;
-            useUtilityOnCargoTarget.requiredSkill = tractorBeamSkillDef;
-            useUtilityOnCargoTarget.requireSkillReady = true;
-            useUtilityOnCargoTarget.minDistance = 0f;
-            useUtilityOnCargoTarget.maxDistance = 40f;
-            useUtilityOnCargoTarget.moveTargetType = AISkillDriver.TargetType.Custom;
-            useUtilityOnCargoTarget.selectionRequiresTargetLoS = false;
-            useUtilityOnCargoTarget.activationRequiresAimTargetLoS = true;
-            useUtilityOnCargoTarget.movementType = AISkillDriver.MovementType.StrafeMovetarget;
-            useUtilityOnCargoTarget.moveInputScale = 1f;
-            masterPrefab.ReorderSkillDrivers(useUtilityOnCargoTarget, 4);
-
-            AISkillDriver chaseCargoTarget = masterPrefab.AddComponent<AISkillDriver>();
-            chaseCargoTarget.customName = "chaseCargoTarget";
-            chaseCargoTarget.skillSlot = SkillSlot.None;
-            chaseCargoTarget.minDistance = 0f;
-            chaseCargoTarget.maxDistance = maxCargoChaseDistance;
-            chaseCargoTarget.moveTargetType = AISkillDriver.TargetType.Custom;
-            chaseCargoTarget.activationRequiresTargetLoS = false;
-            chaseCargoTarget.movementType = AISkillDriver.MovementType.ChaseMoveTarget;
-            chaseCargoTarget.moveInputScale = 1f;
-            masterPrefab.ReorderSkillDrivers(chaseCargoTarget, 5);
+            AISkillDriverData driverDataFleeWithCargo = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "fleeWithCargo",
+                skillSlot = SkillSlot.None,
+                minDistance = 0f,
+                maxDistance = 40f,
+                targetType = AISkillDriver.TargetType.Custom,
+                selectionRequiresTargetLoS = false,
+                movementType = AISkillDriver.MovementType.FleeMoveTarget,
+                aimType = AISkillDriver.AimType.AtMoveTarget,
+                moveInputScale = 0.75f,
+                desiredIndex = 0
+                
+            };
+            CreateAISkillDriver(driverDataFleeWithCargo);
+            AISkillDriverData driverDataStrafeWithCargo = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "strafeWithCargo",
+                skillSlot = SkillSlot.Utility,
+                minDistance = 0f,
+                maxDistance = 60f,
+                targetType = AISkillDriver.TargetType.Custom,
+                activationRequiresAimTargetLoS = true,
+                selectionRequiresTargetLoS = false,
+                movementType = AISkillDriver.MovementType.StrafeMovetarget,
+                aimType = AISkillDriver.AimType.AtMoveTarget,
+                moveInputScale = 0.75f,
+                desiredIndex = 1
+            };
+            CreateAISkillDriver(driverDataStrafeWithCargo);
+            AISkillDriverData driverDataChaseWithCargo = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "chaseWithCargo",
+                skillSlot = SkillSlot.Utility,
+                requiredSkillDef = fling,
+                minDistance = 0f,
+                maxDistance = TractorBeamModule.maxRange.Value,
+                targetType = AISkillDriver.TargetType.Custom,
+                movementType = AISkillDriver.MovementType.ChaseMoveTarget,
+                aimType = AISkillDriver.AimType.AtMoveTarget,
+                activationRequiresAimTargetLoS = true,
+                selectionRequiresTargetLoS = false,
+                moveInputScale = 0.75f,
+                desiredIndex = 2
+            };
+            CreateAISkillDriver(driverDataChaseWithCargo);
+            AISkillDriverData driverDataChaseWithCargoFar = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "chaseWithCargoFar",
+                skillSlot = SkillSlot.None,
+                minDistance = 0f,
+                maxDistance = Mathf.Infinity,
+                targetType = AISkillDriver.TargetType.Custom,
+                selectionRequiresTargetLoS = false,
+                movementType = AISkillDriver.MovementType.ChaseMoveTarget,
+                aimType = AISkillDriver.AimType.AtMoveTarget,
+                moveInputScale = 0.75f,
+                desiredIndex = 3
+            };
+            CreateAISkillDriver(driverDataChaseWithCargoFar);
+            AISkillDriverData driverDataUseUtilityOnCargoTarget = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "useUtilityOnCargoTarget",
+                skillSlot = SkillSlot.Utility,
+                requiredSkillDef = tractorBeam,
+                requireReady = true,
+                minDistance = 0f,
+                maxDistance = 40f,
+                targetType = AISkillDriver.TargetType.Custom,
+                aimType = AISkillDriver.AimType.AtMoveTarget,
+                selectionRequiresTargetLoS = false,
+                activationRequiresAimTargetLoS = true,
+                movementType = AISkillDriver.MovementType.ChaseMoveTarget,
+                moveInputScale = 0.5f,
+                desiredIndex = 4
+            };
+            CreateAISkillDriver(driverDataUseUtilityOnCargoTarget);
+            AISkillDriverData driverDataChaseCargoTarget = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "chaseCargoTarget",
+                skillSlot = SkillSlot.None,
+                minDistance = 0f,
+                maxDistance = maxCargoChaseDistance,
+                aimType = AISkillDriver.AimType.AtMoveTarget,
+                targetType = AISkillDriver.TargetType.Custom,
+                movementType = AISkillDriver.MovementType.ChaseMoveTarget,
+                activationRequiresTargetLoS = false,
+                desiredIndex = 5
+            };
+            CreateAISkillDriver(driverDataChaseCargoTarget);
         }
         public void CreateBuffDef()
         {
@@ -355,7 +382,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             driverController.cargoBody = targetBody;
             driverController.cargoController = cargoController;
             driverController.TryFindCustomTarget();
-            activatorSkillSlot.SetSkillOverride(characterBody.gameObject, TractorBeamModule.flingSkillDef, GenericSkill.SkillOverridePriority.Replacement);
+            activatorSkillSlot.SetSkillOverride(characterBody.gameObject, TractorBeamModule.fling, GenericSkill.SkillOverridePriority.Replacement);
             activatorSkillSlot.rechargeStopwatch = 0f;
             activatorSkillSlot.RemoveAllStocks();
         }
@@ -389,11 +416,11 @@ namespace EnemyAbilities.Abilities.IronHauler
         private IronHaulerCargoController cargoController;
         private CharacterBody cargoBody;
 
-        private static float baseDamageCoefficient = flingBaseDamageCoeff.Value / 100f;
+        private static float baseDamageCoefficient = TractorBeamModule.baseDamageCoeff.Value / 100f;
         private static float baseForce = 1500f;
         private static Vector3 bonusForce = new Vector3(0f, 1500f, 0f);
         private static float procCoefficient = 1f;
-        private static float baseRadius = flingRadius.Value;
+        private static float baseRadius = TractorBeamModule.explosionRadius.Value;
 
         private static float lockOnDuration = 1f;
         private float lockOnTimer = 0f;
@@ -595,7 +622,7 @@ namespace EnemyAbilities.Abilities.IronHauler
                 BlastAttack blastAttack = new BlastAttack();
                 blastAttack.attacker = characterBody.gameObject;
                 blastAttack.attackerFiltering = AttackerFiltering.NeverHitSelf;
-                blastAttack.baseDamage = damageStat * (baseDamageCoefficient + ((cargoMass / 100f) * flingDamageCoeffPerUnitMass.Value));
+                blastAttack.baseDamage = damageStat * (baseDamageCoefficient + ((cargoMass / 100f) * TractorBeamModule.damageCoeffPerMass.Value));
                 blastAttack.baseForce = baseForce + cargoMass * 3f;
                 blastAttack.bonusForce = bonusForce + new Vector3(0f, cargoMass * 1.5f, 0f);
                 blastAttack.crit = RollCrit();
@@ -632,7 +659,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             Vector3 gravity = Physics.gravity; 
             Vector3 initialPosition = cargoBody.transform.position;
             Vector3 finalPosition = ai.customTarget.characterBody.footPosition;
-            float time = flingTimeToTarget.Value;
+            float time = TractorBeamModule.timeToTarget.Value;
 
             Vector3 vector1 = (finalPosition - initialPosition) / time;
             Vector3 vector2 = 0.5f * gravity * time;
@@ -1148,7 +1175,7 @@ namespace EnemyAbilities.Abilities.IronHauler
                 targetCheckTimer += targetCheckInterval;
                 TryFindCustomTarget();
             }
-            tractorBeamReady = skillLocator.utility.skillDef == TractorBeamModule.tractorBeamSkillDef && skillLocator.utility.IsReady();
+            tractorBeamReady = skillLocator.utility.skillDef == TractorBeamModule.tractorBeam && skillLocator.utility.IsReady();
 
             fleeWithCargoDriver.enabled = hasCargo;
             strafeWithCargoDriver.enabled = hasCargo;
@@ -1198,7 +1225,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             cargoBody = null;
             cargoController = null;
             hasCargo = false;
-            skillLocator.utility.UnsetSkillOverride(body.gameObject, TractorBeamModule.flingSkillDef, GenericSkill.SkillOverridePriority.Replacement);
+            skillLocator.utility.UnsetSkillOverride(body.gameObject, TractorBeamModule.fling, GenericSkill.SkillOverridePriority.Replacement);
             skillLocator.utility.RemoveAllStocks();
             skillLocator.utility.rechargeStopwatch = 0f;
         }
@@ -1225,7 +1252,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             search.RefreshCandidates();
             search.FilterOutGameObject(ai.body.gameObject);
 
-            if (ai.body != null && skillLocator != null && skillLocator.utility != null && skillLocator.utility.IsReady() && skillLocator.utility.skillDef == TractorBeamModule.tractorBeamSkillDef && !hasCargo)
+            if (ai.body != null && skillLocator != null && skillLocator.utility != null && skillLocator.utility.IsReady() && skillLocator.utility.skillDef == TractorBeamModule.tractorBeam && !hasCargo)
             {
                 IEnumerable<HurtBox> source = search.GetResults().Where(hurtBox => hurtBox.healthComponent != null && hurtBox.healthComponent.body != null && TractorBeamModule.TargetIsValidForCargoSelection(hurtBox.healthComponent.body, body));
                 if (source.Any())

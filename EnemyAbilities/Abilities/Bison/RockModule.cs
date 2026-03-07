@@ -3,144 +3,190 @@ using RoR2.CharacterAI;
 using R2API;
 using RoR2;
 using RoR2.Skills;
-using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
+using RoR2BepInExPack.GameAssetPaths.Version_1_39_0;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using RoR2.Projectile;
-using UnityEngine.Networking;
-using RoR2.Audio;
 using Rewired.ComponentControls.Effects;
 using System.Linq;
 using static R2API.DamageAPI;
-using static EnemyAbilities.PluginConfig;
+using BepInEx.Configuration;
+using System.Collections.Generic;
+using HarmonyLib;
+using MonoMod.Cil;
+using System.Reflection;
+using Mono.Cecil.Cil;
+using System;
 
 namespace EnemyAbilities.Abilities.Bison
 {
-    [EnemyAbilities.ModuleInfo("Unearth Boulder", "Gives Bison a new Secondary\n- Unearth Boulder: The Bison Unearths a large boulders nearby. These do nothing until hit with a melee attack, at which point they launch towards a nearby target, dealing high damage on impact. Activating this module causes Charge to activate from a longer range, and changes the max health damage needed to stun a Bison from 15% -> 30% to match Beetle Guards and Stone Golems.", "Bighorn Bison", true)]
+    [EnemyAbilities.ModuleInfo("Unearth Boulder", "Gives Bison a new Secondary\n- Unearth Boulder: The Bison Unearths a large boulder nearby. When destroyed, the boulder explodes in a wide radius and launches 3 mini-boulders in a spread towards the nearest enemy of it's killer. Melee attacks from Bison break the boulder instantly. Activating this module causes Charge to activate from a longer range, and changes the max health damage needed to stun a Bison from 15% -> 30% to match Beetle Guards and Stone Golems.", "Bighorn Bison", true)]
 
     public class RockModule : BaseModule
     {
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Bison.BisonBody_prefab).WaitForCompletion();
         private static GameObject masterPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Bison.BisonMaster_prefab).WaitForCompletion();
-        private SkillDef bisonChargeSkill = Addressables.LoadAssetAsync<SkillDef>(RoR2_Base_Bison.BisonBodyCharge_asset).WaitForCompletion();
-        private EntityStateConfiguration escBisonCharge = Addressables.LoadAssetAsync<EntityStateConfiguration>(RoR2_Base_Bison.EntityStates_Bison_Charge_asset).WaitForCompletion();
-        public static GameObject rockProjectile = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Grandparent.GrandparentBoulder_prefab).WaitForCompletion().InstantiateClone("bisonBoulder");
-        public static GameObject rockGhost = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Grandparent.GrandparentBoulderGhost_prefab).WaitForCompletion().InstantiateClone("bisonBoulderGhost");
+        public static GameObject rockProjectile = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Grandparent.GrandparentBoulder_prefab).WaitForCompletion().InstantiateClone("bisonMegaBoulder");
+        public static GameObject rockGhost = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Grandparent.GrandparentBoulderGhost_prefab).WaitForCompletion().InstantiateClone("bisonMegaBoulderGhost");
+        public static GameObject miniRockProjectile = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Grandparent.GrandparentBoulder_prefab).WaitForCompletion().InstantiateClone("bisonMiniBoulder");
+        public static GameObject miniRockGhost = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Grandparent.GrandparentBoulderGhost_prefab).WaitForCompletion().InstantiateClone("bisonMiniBoulderGhost");
         public static ModdedDamageType rockDamageType;
 
-        public override void Awake()
+        internal static ConfigEntry<float> rockCount;
+        internal static ConfigEntry<float> rockChildDamageCoeff;
+        internal static ConfigEntry<float> rockExplosionCoeff;
+        internal static ConfigEntry<float> rockTravelTime;  
+        internal static ConfigEntry<float> rockExplosionRadius;
+        internal static ConfigEntry<float> rockChildExplosionRadius;
+        internal static ConfigEntry<float> rockMaxHealth;
+        internal static ConfigEntry<float> rockCooldown;
+        public override void RegisterConfig()
         {
-            base.Awake();
+            base.RegisterConfig();
+            rockCount = BindFloat("Rock Count", 3f, "The number of rocks spawned. Rock counts beyond 1 are distributed in an arc with max yaw 30", 1f, 5f, 1f);
+            rockChildDamageCoeff = BindFloat("Rock Fragment Damage Coefficient", 300f, "Damage coeff of the mini-boulders that get launched", 100f, 1000f, 5f, PluginConfig.FormatType.Percentage);
+            rockExplosionCoeff = BindFloat("Rock Explosion Damage Coefficient", 400f, "Damage coeff of the explosion when the big rock is killed", 100f, 1000f, 5f, PluginConfig.FormatType.Percentage);
+            rockTravelTime = BindFloat("Rock Time to Target", 1.25f, "Duration of time between the rock being destroyed and the mini rock(s) reaching it's target. Proportional to arc height", 0.5f, 5f, 0.01f, PluginConfig.FormatType.Time);
+            rockExplosionRadius = BindFloat("Rock Explosion Radius", 16f, "Explosion radius of the big rock", 8f, 20f, 1f, PluginConfig.FormatType.Distance);
+            rockChildExplosionRadius = BindFloat("Rock Fragment Explosion Radius", 8f, "Explosion radius of the rock fragments", 5f, 12f, 1f, PluginConfig.FormatType.Distance);
+            rockCooldown = BindFloat("Rock Cooldown", 15f, "Cooldown before the ability can be activated again", 5f, 30f, 0.1f, PluginConfig.FormatType.Time);
+            rockMaxHealth = BindFloat("Rock Health", 400f, "Max health of the rock at Level 1. Gains 30% of this value per level", 100f, 600f, 10f, PluginConfig.FormatType.None);
+
+        }
+        public override void Initialise()
+        {
+            base.Initialise();
             CreateSkill();
-            ModifyProjectilePrefab();
-            On.RoR2.HealthComponent.TakeDamageProcess += TakeDamageProcess;
+            ModifyProjectiles();
             rockDamageType = ReserveDamageType();
             bodyPrefab.GetComponent<SetStateOnHurt>().hitThreshold = 0.3f;
-        }
-
-        private void TakeDamageProcess(On.RoR2.HealthComponent.orig_TakeDamageProcess orig, HealthComponent self, DamageInfo damageInfo)
-        {
-            orig(self, damageInfo);
-            ProjectileBisonRock component = self.gameObject.GetComponent<ProjectileBisonRock>();
-            if (component != null)
+            On.RoR2.HealthComponent.TakeDamageProcess += ModifyBisonDamageAgainstRock;
+            GlobalEventManager.onCharacterDeathGlobal += OnCharacterDeath;
+            IL.RoR2.CharacterBody.RecalculateStats += (il) =>
             {
-                if (self != null && damageInfo != null && damageInfo.attacker != null)
+                ILCursor c1 = new ILCursor(il);
+                MethodInfo methodInfo = AccessTools.PropertySetter(typeof(CharacterBody), nameof(CharacterBody.maxHealth));
+                if (c1.TryGotoNext(
+                    x => x.MatchCallOrCallvirt(methodInfo)
+                ))
                 {
-                    CharacterBody victimBody = self.body;
-                    CharacterBody attackerBody = damageInfo.attacker.GetComponent<CharacterBody>();
-                    if (attackerBody != null && victimBody != null)
+                    c1.Emit(OpCodes.Ldarg_0);
+                    c1.EmitDelegate<Func<float, CharacterBody, float>>((originalMaxHealth, characterBody) =>
                     {
-                        bool launchValid = false;
-                        if (attackerBody.bodyIndex == RoR2Content.BodyPrefabs.BisonBody.bodyIndex && !damageInfo.damageType.HasModdedDamageType(rockDamageType))
+                        //filters out most normal enemies, stops us from doing GetComponent EVERY time recalc stats is called
+                        if (characterBody.master == null)
                         {
-                            launchValid = true;
+                            ProjectileMegaBisonRock component = characterBody.gameObject.GetComponent<ProjectileMegaBisonRock>();
+                            if (component != null)
+                            {
+                                float healthPerLevel = rockMaxHealth.Value * 0.3f;
+                                float newHealth = rockMaxHealth.Value + (((int)Run.instance.ambientLevel - 1) * healthPerLevel);
+                                return newHealth;
+                            }
                         }
-                        //can also be moved by sufficiently strong attacks
-                        if (damageInfo.damage >= attackerBody.damage * 10f)
-                        {
-                            launchValid = true;
-                        }
-                        if (launchValid)
-                        {
-
-                            component.TryLaunch(attackerBody);
-                        }
+                        return originalMaxHealth;
+                    });
+                }
+                else
+                {
+                    Log.Error($"IL.RoR2.CharacterBody.RecalculateStats Cursor c1 failed to match!");
+                }
+            };
+        }
+        private void OnCharacterDeath(DamageReport report)
+        {
+            if (report == null)
+            {
+                return;
+            }
+            if (report.victim == null)
+            {
+                return;
+            }
+            ProjectileMegaBisonRock megaRockComponent = report.victim.GetComponent<ProjectileMegaBisonRock>();
+            if (megaRockComponent != null)
+            {
+                megaRockComponent.OnDeath(report);
+            }
+        }
+        private void ModifyBisonDamageAgainstRock(On.RoR2.HealthComponent.orig_TakeDamageProcess orig, HealthComponent self, DamageInfo damageInfo)
+        {
+            if (self.GetComponent<ProjectileMegaBisonRock>() != null)
+            {
+                if (damageInfo.attacker != null)
+                {
+                    CharacterBody attackerBody = damageInfo.attacker.GetComponent<CharacterBody>();
+                    if (attackerBody.bodyIndex == RoR2Content.BodyPrefabs.BisonBody.bodyIndex)
+                    {
+                        damageInfo.damage = self.fullHealth;
+                        damageInfo.procCoefficient = 0f;
+                    }
+                    //boulders don't damage boulders, avoids chain-reactions
+                    if (damageInfo.damageType.HasModdedDamageType(rockDamageType))
+                    {
+                        damageInfo.damage = 0f;
+                        damageInfo.procCoefficient = 0f;
                     }
                 }
             }
+            orig(self, damageInfo);
         }
-
-        public void CreateSkill()
+        private void CreateSkill()
         {
-            SkillDef spawnRock = ScriptableObject.CreateInstance<SkillDef>();
-            (spawnRock as ScriptableObject).name = "BisonBodySpawnRock";
-            spawnRock.skillName = "BisonSpawnRock";
-            spawnRock.activationStateMachineName = "Body";
-            spawnRock.activationState = ContentAddition.AddEntityState<SpawnRock>(out _);
-            spawnRock.baseRechargeInterval = boulderCooldown.Value;
-            spawnRock.canceledFromSprinting = false;
-            spawnRock.isCombatSkill = false;
-            ContentAddition.AddSkillDef(spawnRock);
+            SkillDefData skillData = new SkillDefData
+            {
+                objectName = "BisonBodySpawnRock",
+                skillName = "BisonSpawnRock",
+                esmName = "Body",
+                activationState = ContentAddition.AddEntityState<SpawnRock>(out _),
+                cooldown = rockCooldown.Value,
+                combatSkill = true
+            };
+            SkillDef spawnRock = CreateSkillDef<SkillDef>(skillData);
 
-            SkillFamily skillFamily = ScriptableObject.CreateInstance<SkillFamily>();
-            (skillFamily as ScriptableObject).name = "BisonSecondaryFamily";
-            skillFamily.variants = [new SkillFamily.Variant() { skillDef = spawnRock }];
+            CreateGenericSkill(bodyPrefab, skillData.skillName, "BisonSecondaryFamily", spawnRock, SkillSlot.Secondary);
 
-            GenericSkill skill = bodyPrefab.AddComponent<GenericSkill>();
-            skill.skillName = "BisonSpawnRock";
-            skill._skillFamily = skillFamily;
-
-            SkillLocator locator = bodyPrefab.GetComponent<SkillLocator>();
-            locator.secondary = skill;
-
-            ContentAddition.AddSkillFamily(skillFamily);
-
-            AISkillDriver useSecondary = masterPrefab.AddComponent<AISkillDriver>();
-            useSecondary.customName = "useSecondary";
-            useSecondary.skillSlot = SkillSlot.Secondary;
-            useSecondary.requiredSkill = spawnRock;
-            useSecondary.requireSkillReady = true;
-            useSecondary.minDistance = 18f;
-            useSecondary.maxDistance = 80f;
-            useSecondary.selectionRequiresOnGround = true;
-            useSecondary.moveTargetType = AISkillDriver.TargetType.CurrentEnemy;
-            useSecondary.movementType = AISkillDriver.MovementType.ChaseMoveTarget;
-            masterPrefab.ReorderSkillDrivers(useSecondary, 1);
-
-            AISkillDriver chargeDriver = masterPrefab.GetComponents<AISkillDriver>()[2];
-            chargeDriver.maxDistance = 80f;
+            AISkillDriverData driverData = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "useSecondary",
+                skillSlot = SkillSlot.Secondary,
+                requiredSkillDef = spawnRock,
+                requireReady = true,
+                minDistance = 10f,
+                maxDistance = 80f,
+                selectionRequiresOnGround = true,
+                aimType = AISkillDriver.AimType.AtCurrentEnemy,
+                movementType = AISkillDriver.MovementType.ChaseMoveTarget,
+                targetType = AISkillDriver.TargetType.CurrentEnemy,
+                desiredIndex = 1
+            };
+            CreateAISkillDriver(driverData);
+            AISkillDriver chargeDriver = masterPrefab.GetComponents<AISkillDriver>().Where(driver => driver.skillSlot == SkillSlot.Utility).FirstOrDefault();
+            if (chargeDriver != null)
+            {
+                chargeDriver.maxDistance = 80f;
+            }
+            else
+            {
+                Log.Error($"Could not find charge driver!");
+            }
         }
-        public void ModifyProjectilePrefab()
+        private void ModifyProjectiles()
         {
+
             ProjectileController controller = rockProjectile.GetComponent<ProjectileController>();
-            rockProjectile.layer = LayerIndex.projectileWorldOnly.intVal;
             controller.flightSoundLoop = null;
             controller.ghostPrefab = rockGhost;
             rockGhost.GetComponent<Transform>().localScale = Vector3.one * 0.75f;
             ProjectileImpactExplosion impact = rockProjectile.GetComponent<ProjectileImpactExplosion>();
+            DestroyImmediate(impact);
             ProjectileSimple simple = rockProjectile.GetComponent<ProjectileSimple>();
-            simple.lifetime = 20f;
-            Destroy(impact);
-            ProjectileBisonRock rock = rockProjectile.AddComponent<ProjectileBisonRock>();
-            rock.falloffModel = BlastAttack.FalloffModel.SweetSpot;
-            rock.blastRadius = boulderExplosionRadius.Value;
-            rock.blastDamageCoefficient = 1f;
-            rock.blastProcCoefficient = 1f;
-            rock.blastAttackerFiltering = AttackerFiltering.Default;
-            rock.bonusBlastForce = new Vector3(0f, 2000f, 0f);
-            rock.canRejectForce = true;
-            rock.impactEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Parent.ParentSlamEffect_prefab).WaitForCompletion();
-            rock.fireChildren = false;
-            rock.destroyOnEnemy = true;
-            rock.destroyOnWorld = true;
-            rock.destroyOnDistance = false;
-            rock.lifetime = 20f;
-            rock.explodeOnLifeTimeExpiration = false;
-            ProjectileStickOnImpact stick = rockProjectile.AddComponent<ProjectileStickOnImpact>();
-            stick.alignNormals = true;
-            stick.ignoreCharacters = true;
-            stick.ignoreWorld = false;
-            stick.ignoreSteepSlopes = false;
+            simple.lifetime = 99f;
+            simple.desiredForwardSpeed = 0f;
+
+            Rigidbody rigid = rockProjectile.GetComponent<Rigidbody>();
+            rigid.mass = 9999f;
 
             SphereCollider projectileCollider = rockProjectile.GetComponent<SphereCollider>();
             projectileCollider.radius = 1.5f;
@@ -164,25 +210,28 @@ namespace EnemyAbilities.Abilities.Bison
             teamComponent.hideAllyCardDisplay = true;
             teamComponent.teamIndex = TeamIndex.Neutral;
 
+            LanguageAPI.Add("SKELETOGNE_BISONROCK_BODY_NAME", "Bison Boulder");
             CharacterBody characterBody = rockProjectile.AddComponent<CharacterBody>();
             characterBody.baseVisionDistance = Mathf.Infinity;
             characterBody.sprintingSpeedMultiplier = 1.45f;
             characterBody.hullClassification = HullClassification.Human;
-            characterBody.baseMaxHealth = 1000000f;
-            characterBody.levelMaxHealth = 300000f;
+            characterBody.baseMaxHealth = rockMaxHealth.Value;
+            characterBody.levelMaxHealth = rockMaxHealth.Value * 0.3f; //doesn't actually scale with level properly due to being spawned on neutral team, handled by IL hook
             characterBody.SetSpreadBloom(0f);
             characterBody.bodyFlags |= CharacterBody.BodyFlags.Ungrabbable;
+            characterBody.baseNameToken = "SKELETOGNE_BISONROCK_BODY_NAME";
 
             HealthComponent healthComponent = rockProjectile.AddComponent<HealthComponent>();
             healthComponent.body = characterBody;
-            healthComponent.dontShowHealthbar = true;
-            healthComponent.globalDeathEventChanceCoefficient = 0f;
+            healthComponent.dontShowHealthbar = false;
+            healthComponent.globalDeathEventChanceCoefficient = 1f;
+
+            //explode.projectileHealthComponent = healthComponent;
 
             GameObject hurtBoxObject = new GameObject();
             hurtBoxObject.transform.SetParent(modelLocator.modelTransform);
 
             SphereCollider collider = hurtBoxObject.AddComponent<SphereCollider>();
-            collider.enabled = true;
             collider.isTrigger = true;
             collider.contactOffset = 0.01f;
             collider.radius = 3f;
@@ -215,358 +264,205 @@ namespace EnemyAbilities.Abilities.Bison
             DisableCollisionsBetweenColliders dcbc = rockProjectile.AddComponent<DisableCollisionsBetweenColliders>();
             dcbc.collidersA = [rockProjectile.GetComponent<SphereCollider>()];
             dcbc.collidersB = [collider];
-            
+
+            ProjectileMegaBisonRock stick = rockProjectile.AddComponent<ProjectileMegaBisonRock>();
+
+            ProjectileImpactExplosion miniRockExplosion = miniRockProjectile.GetComponent<ProjectileImpactExplosion>();
+            miniRockExplosion.fireChildren = false;
+            miniRockExplosion.childrenCount = 0;
+            miniRockExplosion.blastRadius = rockChildExplosionRadius.Value;
+            ProjectileController miniRockController = miniRockProjectile.GetComponent<ProjectileController>();
+            miniRockController.ghostPrefab = miniRockGhost;
+            miniRockGhost.GetComponent<Transform>().localScale = Vector3.one * 0.4f;
+            SphereCollider miniRockCollider = miniRockProjectile.GetComponent<SphereCollider>();
+            miniRockCollider.radius = 0.75f;
         }
-    }
-    public class SpawnRock : BaseSkillState
-    {
-        private static float baseDuration = 0.25f;
-        private float duration;
-
-        private static float rockSpawnDistance = 10f;
-        private int rockSpawnCount = (int)boulderCount.Value;
-        private float rockIntervalInDegrees = 45f;
-
-        private static GameObject projectilePrefab = RockModule.rockProjectile;
-
-        public override void OnEnter()
+        public class SpawnRock : BaseSkillState
         {
-            base.OnEnter();
-            duration = baseDuration / attackSpeedStat;
-            Vector3 bisonPosition = characterBody.transform.position;
-            Vector3 forward = characterBody.transform.forward;
-            forward.y = 0f;
-            forward = forward.normalized;
-            CharacterMaster master = characterBody.master;
-            if (master != null)
+            private static float baseDuration = 0.25f;
+            private float duration;
+            private static float rockSpawnDistance = 10f;
+            private static GameObject projectilePrefab = RockModule.rockProjectile;
+
+            public override void OnEnter()
             {
-                BaseAI baseAI = master.gameObject.GetComponent<BaseAI>();
-                if (baseAI != null && baseAI.currentEnemy != null && baseAI.currentEnemy.characterBody != null)
+                base.OnEnter();
+                duration = baseDuration / attackSpeedStat;
+                Vector3 bisonPosition = characterBody.transform.position;
+                Vector3 forward = characterBody.transform.forward;
+                forward.y = 0f;
+                forward = forward.normalized;
+                CharacterMaster master = characterBody.master;
+                if (master != null)
                 {
-                    Vector3 targetPosition = baseAI.currentEnemy.characterBody.transform.position;
-                    Vector3 direction = targetPosition - bisonPosition;
-                    direction.y = 0f;
-                    forward = direction.normalized;
+                    BaseAI baseAI = master.gameObject.GetComponent<BaseAI>();
+                    if (baseAI != null && baseAI.currentEnemy != null && baseAI.currentEnemy.characterBody != null)
+                    {
+                        Vector3 targetPosition = baseAI.currentEnemy.characterBody.transform.position;
+                        Vector3 direction = targetPosition - bisonPosition;
+                        direction.y = 0f;
+                        forward = direction.normalized;
+                    }
                 }
-            }
-            for (int i = 0; i < rockSpawnCount; i++)
-            {
                 if (base.isAuthority)
                 {
-                    float angleInDegrees = (360 - ((rockSpawnCount - 1) * rockIntervalInDegrees) / 2) + i * rockIntervalInDegrees;
-                    Vector3 rotatedVector = Quaternion.AngleAxis(angleInDegrees, Vector3.up) * forward;
-                    Vector3 raycastStartPosition = (characterBody.transform.position + rotatedVector * rockSpawnDistance) + new Vector3(0f, 15f, 0f);
+                    Vector3 raycastStartPosition = (characterBody.transform.position + forward * rockSpawnDistance) + new Vector3(0f, 15f, 0f);
                     bool success = Physics.Raycast(raycastStartPosition, Vector3.down, out RaycastHit hit, 30f, LayerIndex.world.mask, QueryTriggerInteraction.Ignore);
                     if (success)
                     {
-                        Vector3 rockSpawnPosition = hit.point + new Vector3(0f, 1.75f, 0f);
-                        DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Secondary, damageType = DamageType.Generic };
-                        combo.AddModdedDamageType(RockModule.rockDamageType);
-                        ProjectileManager.instance.FireProjectile(projectilePrefab, rockSpawnPosition, Util.QuaternionSafeLookRotation(UnityEngine.Random.onUnitSphere), characterBody.gameObject, (boulderDamageCoeff.Value / 100f) * damageStat, 2000f, RollCrit(), DamageColorIndex.Default, null, 0f, combo);
+                        Vector3 rockSpawnPosition = hit.point + new Vector3(0f, 2f, 0f);
+                        ProjectileManager.instance.FireProjectile(projectilePrefab, rockSpawnPosition, Util.QuaternionSafeLookRotation(UnityEngine.Random.onUnitSphere), characterBody.gameObject, 0f, 0f, false, DamageColorIndex.Default, null, 0f, DamageType.Generic);
                     }
                 }
-            }
 
-        }
-        public override void OnExit()
-        {
-            base.OnExit();
-        }
-        public override void FixedUpdate()
-        {
-            base.FixedUpdate();
-            if (base.fixedAge > duration)
-            {
-                outer.SetNextStateToMain();
             }
-        }
-    }
-    [RequireComponent(typeof(ProjectileController))]
-    public class ProjectileBisonRock : ProjectileExplosion, IProjectileImpactBehavior
-    {
-        public enum TransformSpace
-        {
-            World,
-            Local,
-            Normal
-        }
-        private Vector3 impactNormal = Vector3.up;
-        public GameObject impactEffect;
-        public NetworkSoundEventDef lifetimeExpiredSound;
-        public float offsetForLifetimeExpiredSound;
-        public bool destroyOnEnemy = true;
-        public bool detonateOnEnemy;
-        public bool destroyOnWorld;
-        public bool destroyOnDistance;
-        public float maxDistance;
-        private float maxDistanceSqr;
-        public bool impactOnWorld = true;
-        public bool timerAfterImpact;
-        public float lifetime;
-        public float lifetimeAfterImpact;
-        private float stopwatch;
-        public uint minimumPhysicsStepsToKeepAliveAfterImpact;
-        private float stopwatchAfterImpact;
-        private bool hasImpact;
-        private bool hasPlayedLifetimeExpiredSound;
-        public TransformSpace transformSpace;
-        private Vector3 startPos;
-        public bool explodeOnLifeTimeExpiration;
-        private static float launchMaxSearchRange = 100f;
-        private static float launchMaxSearchAngle = 75f;
-        private CharacterBody mostRecentLauncher = null;
-        private enum RockState
-        {
-            None,
-            JustSpawned,
-            Embedded,
-            Launched
-        }
-        private RockState rockState = RockState.JustSpawned;
-        private float phaseOutTimer;
-        private static float phaseOutDuration = 0.1f;
-
-        public override void Awake()
-        {
-            base.Awake();
-        }
-        public void TryLaunch(CharacterBody attackerBody)
-        {
-            if (rockState == RockState.JustSpawned)
+            public override void OnExit()
             {
-                return;
+                base.OnExit();
             }
-            if (mostRecentLauncher == attackerBody)
+            public override void FixedUpdate()
             {
-                return;
-            }
-            mostRecentLauncher = attackerBody;
-            bool foundTarget = false;
-            HurtBox targetHurtBox = null;
-            ProjectileStickOnImpact stick = GetComponent<ProjectileStickOnImpact>();
-            TeamFilter filter = GetComponent<TeamFilter>();
-            filter.teamIndex = attackerBody.teamComponent.teamIndex;
-            projectileController.owner = attackerBody.gameObject;
-            ProjectileDamage damage = GetComponent<ProjectileDamage>();
-            stick.enabled = false;
-            Vector3 attackerPosition = attackerBody.transform.position;
-            Vector3 rockPosition = transform.position;
-            Vector3 searchDirection = (rockPosition - attackerPosition).normalized;
-
-            BullseyeSearch search = new BullseyeSearch();
-            search.searchOrigin = rockPosition;
-            search.searchDirection = searchDirection;
-            search.minDistanceFilter = 0f;
-            search.maxDistanceFilter = launchMaxSearchRange;
-            search.maxAngleFilter = launchMaxSearchAngle;
-            search.sortMode = BullseyeSearch.SortMode.Distance;
-            search.filterByDistinctEntity = true;
-            search.filterByLoS = true;
-            search.queryTriggerInteraction = QueryTriggerInteraction.UseGlobal;
-            search.teamMaskFilter = TeamMask.GetEnemyTeams(filter.teamIndex);
-            search.RefreshCandidates();
-            search.FilterOutGameObject(this.gameObject);
-            var results = search.GetResults();
-            if (results != null && results.Any())
-            {
-                targetHurtBox = results.Where(hurtBox =>hurtBox != null && hurtBox.healthComponent != null && hurtBox.healthComponent.health > 0 && hurtBox.healthComponent.body != null && hurtBox.healthComponent.body.transform != null).FirstOrDefault();
-                if (targetHurtBox != null)
+                base.FixedUpdate();
+                if (base.fixedAge > duration)
                 {
-                    foundTarget = true;
+                    outer.SetNextStateToMain();
                 }
             }
-            Vector3 startVelocity = Vector3.zero;
-            if (foundTarget == true)
-            {
-                startVelocity = Trajectory.CalculateInitialVelocityFromTime(rockPosition, targetHurtBox.healthComponent.body.transform.position, filter.teamIndex == TeamIndex.Player ? boulderTravelTimePlayer.Value : boulderTravelTimeNonPlayer.Value, minHDistance: 10f, maxHDistance: 100f); 
-            }
-            else
-            {
-                startVelocity = Trajectory.CalculateInitialVelocityFromTime(rockPosition, rockPosition + searchDirection * 40f, boulderTravelTimeNonPlayer.Value);
-            }
-            if (rockState == RockState.Embedded)
-            {
-                phaseOutTimer = 0f;
-                rockState = RockState.Launched;
-                RotateAroundAxis[] components = projectileController.ghost.gameObject.GetComponentsInChildren<RotateAroundAxis>();
-                foreach (RotateAroundAxis axis in components)
-                {
-                    if (axis != null)
-                    {
-                        axis.enabled = true;
-                    }
-                }
-            }
-            Rigidbody rigidBody = GetComponent<Rigidbody>();
-            lifetime += 5f;
-            rigidBody.velocity = startVelocity;
         }
-
-        protected void Start()
+        public class ProjectileMegaBisonRock : MonoBehaviour, IProjectileImpactBehavior
         {
-            startPos = base.transform.position;
-            maxDistanceSqr = maxDistance * maxDistance;
-        }
-
-        protected void FixedUpdate()
-        {
-            stopwatch += Time.fixedDeltaTime;
-            if (rockState == RockState.Launched)
+            private Rigidbody rigidbody;
+            public HealthComponent healthComponent;
+            private bool hit;
+            private GameObject impactEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_BeetleQueen.BeetleQueenDeathImpact_prefab).WaitForCompletion();
+            private GameObject explosionEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common_VFX.OmniExplosionVFX_prefab).WaitForCompletion();
+            public int childCount = (int)rockCount.Value;
+            private float maxSpreadAngle = 15f;
+            public void Start()
             {
-                phaseOutTimer += Time.fixedDeltaTime;
+                rigidbody = GetComponent<Rigidbody>();
+                healthComponent = GetComponent<HealthComponent>();
             }
-            if (!NetworkServer.active && !projectileController.isPrediction)
+            public void OnProjectileImpact(ProjectileImpactInfo info)
             {
-                return;
-            }
-            if (explodeOnLifeTimeExpiration && alive && stopwatch >= lifetime)
-            {
-                explosionEffect = impactEffect ?? explosionEffect;
-                Detonate();
-            }
-            if (timerAfterImpact && hasImpact)
-            {
-                stopwatchAfterImpact += Time.fixedDeltaTime;
-            }
-            bool lifetimeExpired = stopwatch >= lifetime;
-            bool lifetimeAfterImpactExpired = timerAfterImpact && stopwatchAfterImpact > lifetimeAfterImpact;
-            bool beyondMaxDistance = false;
-            if (destroyOnDistance && (base.transform.position - startPos).sqrMagnitude >= maxDistanceSqr)
-            {
-                beyondMaxDistance = true;
-            }
-            if (lifetimeExpired || lifetimeAfterImpactExpired || beyondMaxDistance)
-            {
-                alive = false;
-            }
-            if (timerAfterImpact && hasImpact && minimumPhysicsStepsToKeepAliveAfterImpact != 0)
-            {
-                minimumPhysicsStepsToKeepAliveAfterImpact--;
-                alive = true;
-            }
-            if (alive && !hasPlayedLifetimeExpiredSound)
-            {
-                bool shouldPlayLifetimeExpiredSound = stopwatch > lifetime - offsetForLifetimeExpiredSound;
-                if (timerAfterImpact)
-                {
-                    shouldPlayLifetimeExpiredSound |= stopwatchAfterImpact > lifetimeAfterImpact - offsetForLifetimeExpiredSound;
-                }
-                if (shouldPlayLifetimeExpiredSound)
-                {
-                    hasPlayedLifetimeExpiredSound = true;
-                    if (NetworkServer.active && (bool)lifetimeExpiredSound)
-                    {
-                        PointSoundManager.EmitSoundServer(lifetimeExpiredSound.index, base.transform.position);
-                    }
-                }
-            }
-            if (!alive)
-            {
-                explosionEffect = impactEffect ?? explosionEffect;
-                Detonate();
-            }
-        }
-        public void OnProjectileImpact(ProjectileImpactInfo impactInfo)
-        {
-            if (rockState == RockState.JustSpawned)
-            {
-                RotateAroundAxis[] components = projectileController.ghost.gameObject.GetComponentsInChildren<RotateAroundAxis>();
-                EffectManager.SpawnEffect(impactEffect, new EffectData { origin = transform.position, scale = blastRadius }, true);
-                foreach (RotateAroundAxis axis in components)
-                {
-                    if (axis != null)
-                    {
-                        axis.enabled = false;
-                    }
-                }
-                rockState = RockState.Embedded;
-                return;
-            }
-            Collider collider = impactInfo.collider;
-            if (impactInfo.collider != null)
-            {
-                HurtBox hurtBox = impactInfo.collider.GetComponent<HurtBox>();
-                if (hurtBox != null && hurtBox.healthComponent != null && hurtBox.healthComponent.body != null && hurtBox.healthComponent.body == mostRecentLauncher)
+                if (hit)
                 {
                     return;
                 }
-                if (impactInfo.collider.GetComponentInParent<ProjectileBisonRock>() != null)
+                if (info.collider == null)
                 {
                     return;
                 }
-            }
-            if (!alive)
-            {
-                return;
-            }
-            if (rockState != RockState.Launched)
-            {
-                return;
-            }
-            if (phaseOutTimer < phaseOutDuration)
-            {
-                return;
-            }
-
-            impactNormal = impactInfo.estimatedImpactNormal;
-            if (!collider)
-            {
-                return;
-            }
-            DamageInfo damageInfo = new DamageInfo();
-            if ((bool)projectileDamage)
-            {
-                damageInfo.damage = projectileDamage.damage;
-                damageInfo.crit = projectileDamage.crit;
-                damageInfo.attacker = (projectileController.owner ? projectileController.owner.gameObject : null);
-                damageInfo.inflictor = base.gameObject;
-                damageInfo.damageType = projectileDamage.damageType;
-                damageInfo.inflictor = base.gameObject;
-                damageInfo.position = impactInfo.estimatedPointOfImpact;
-                damageInfo.force = projectileDamage.force * base.transform.forward;
-                damageInfo.procChainMask = projectileController.procChainMask;
-                damageInfo.procCoefficient = projectileController.procCoefficient;
-                damageInfo.damageType = projectileDamage.damageType;
-            }
-            HurtBox component = collider.GetComponent<HurtBox>();
-            if ((bool)component)
-            {
-                if (destroyOnEnemy)
+                HurtBox hurtBox = info.collider.GetComponent<HurtBox>();
+                if (hurtBox != null)
                 {
-                    HealthComponent healthComponent = component.healthComponent;
-                    if ((bool)healthComponent)
+                    return;
+                }
+                if (rigidbody == null)
+                {
+                    return;
+                }
+                hit = true;
+                EffectManager.SpawnEffect(impactEffect, new EffectData { origin = gameObject.transform.position, rotation = Quaternion.identity, scale = 1f }, true);
+                rigidbody.velocity = Vector3.zero;
+                rigidbody.angularVelocity = Vector3.zero;
+                rigidbody.constraints = RigidbodyConstraints.FreezeAll;
+                Util.PlaySound("Play_grandParent_attack1_boulderLarge_impact", this.gameObject);
+
+                ProjectileController controller = GetComponent<ProjectileController>();
+                if (controller != null)
+                {
+                    RotateAroundAxis[] components = controller.ghost.GetComponentsInChildren<RotateAroundAxis>();
+                    foreach (RotateAroundAxis component in components)
                     {
-                        if (healthComponent.gameObject == projectileController.owner || ((bool)projectileHealthComponent && healthComponent == projectileHealthComponent))
+                        if (component != null)
                         {
-                            return;
+                            component.enabled = false;
                         }
-                        alive = false;
                     }
                 }
-                else if (detonateOnEnemy)
+            }
+            public void OnDeath(DamageReport report)
+            {
+                //if there's no killer, it creates an explosion effect but deals no damage and does not launch mini-boulders
+                Detonate(report);
+                Destroy(this.gameObject);
+                EffectManager.SpawnEffect(explosionEffect, new EffectData { origin = gameObject.transform.position, rotation = Quaternion .identity, scale = rockExplosionRadius.Value }, true);
+            }
+            private void Detonate(DamageReport report)
+            {
+
+                CharacterBody attackerBody = report.attackerBody;
+                if (attackerBody == null)
                 {
-                    HealthComponent healthComponent2 = component.healthComponent;
-                    if ((bool)healthComponent2 && healthComponent2.gameObject != projectileController.owner && healthComponent2 != projectileHealthComponent)
-                    {
-                        DetonateNoDestroy();
-                    }
+                    return;
                 }
-            }
-            else if (destroyOnWorld)
-            {
-                alive = false;
-            }
-            hasImpact = (bool)component || impactOnWorld;
-            if (NetworkServer.active && hasImpact)
-            {
-                GlobalEventManager.instance.OnHitAll(damageInfo, collider.gameObject);
-            }
-        }
-        public override void OnValidate()
-        {
-            if (!Application.IsPlaying(this))
-            {
-                base.OnValidate();
+                TeamComponent teamComponent = attackerBody.gameObject.GetComponent<TeamComponent>();
+                if (teamComponent == null)
+                {
+                    return;
+                }
+                InputBankTest inputBank = attackerBody.inputBank;
+                if (inputBank == null)
+                {
+                    return;
+                }
+                Vector3 origin = gameObject.transform.position;
+                Vector3 direction = inputBank.aimDirection;
+                TeamMask teamMask = TeamMask.GetEnemyTeams(teamComponent.teamIndex);
+                teamMask.RemoveTeam(TeamIndex.Neutral);
+                BullseyeSearch search = new BullseyeSearch();
+                search.searchOrigin = origin;
+                search.searchDirection = direction;
+                search.maxAngleFilter = 60f;
+                search.maxDistanceFilter = 100f;
+                search.teamMaskFilter = teamMask;
+                search.sortMode = BullseyeSearch.SortMode.Distance;
+                search.RefreshCandidates();
+                List<HurtBox> results = search.GetResults().ToList();
+                HurtBox targetHurtBox = results.Where(hurtBox => hurtBox != null && hurtBox.healthComponent != null && hurtBox.healthComponent.body != null).FirstOrDefault();
+                bool noTarget = false;
+                if (targetHurtBox == null || targetHurtBox.healthComponent == null || targetHurtBox.healthComponent.body == null)
+                {
+                    noTarget = true;
+                }
+                Vector3 projectileDirection = (direction.normalized + Vector3.up).normalized;
+                float magnitude = 40f;
+                if (!noTarget)
+                {
+                    Vector3 targetPosition = targetHurtBox.healthComponent.body.transform.position;
+                    Vector3 startVelocity = Trajectory.CalculateInitialVelocityFromTime(gameObject.transform.position, targetPosition, rockTravelTime.Value);
+                    magnitude = startVelocity.magnitude;
+                    projectileDirection = startVelocity.normalized;
+                }
+                DamageTypeCombo combo = new DamageTypeCombo { damageType = DamageType.Generic, damageSource = DamageSource.Secondary };
+                combo.AddModdedDamageType(rockDamageType);
+                for (int i = 0; i < childCount; i++)
+                {
+                    float totalSpread = maxSpreadAngle * 2f;
+                    float spreadInterval = childCount > 1 ? totalSpread / (childCount - 1) : 0f;
+                    float startSpread = childCount > 1 ? -maxSpreadAngle : 0f;
+                    float currentSpread = startSpread + spreadInterval * i;
+                    Vector3 updatedDirection = Util.ApplySpread(projectileDirection, 0f, 0f, 1f, 1f, currentSpread);
+                    ProjectileManager.instance.FireProjectile(miniRockProjectile, transform.position + new Vector3(0f, 1f, 0f), Util.QuaternionSafeLookRotation(updatedDirection), attackerBody.gameObject, (rockChildDamageCoeff.Value / 100f) * attackerBody.damage, 1000f, attackerBody.RollCrit(), DamageColorIndex.Default, null, magnitude, combo);
+                }
+                BlastAttack blastAttack = new BlastAttack();
+                blastAttack.position = transform.position;
+                blastAttack.radius = rockExplosionRadius.Value;
+                blastAttack.attacker = attackerBody.gameObject;
+                blastAttack.crit = attackerBody.RollCrit();
+                blastAttack.procCoefficient = 1f;
+                blastAttack.attackerFiltering = AttackerFiltering.NeverHitSelf;
+                blastAttack.baseDamage = (rockExplosionCoeff.Value / 100f) * attackerBody.damage;
+                blastAttack.baseForce = 2000f;
+                blastAttack.bonusForce = new Vector3(0f, 1000f, 0f);
+                blastAttack.damageColorIndex = DamageColorIndex.Default;
+                blastAttack.damageType = combo;
+                blastAttack.falloffModel = BlastAttack.FalloffModel.SweetSpot;
+                blastAttack.procChainMask = default(ProcChainMask);
+                blastAttack.teamIndex = teamComponent.teamIndex;
+                blastAttack.Fire();
+                Destroy(this.gameObject);
             }
         }
     }

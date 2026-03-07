@@ -1,5 +1,26 @@
 ﻿# Changelog
 
+## 1.9.0
+- Gave Solus Extractors a new ability: Tendril Tether!
+- Tightened the spread on Bison Boulders if they fire more than 1 from 30 degrees to 15 degrees.
+- Bison Boulders no longer target neutral character bodies.
+- Gave Xi Core a pulsing visual effect upon getting embedded so it's easier to locate.
+
+## 1.8.0
+- Reworked the Bison Boulder ability to make it less janky! Can be damaged by both players and enemies, launches three mini-boulders on death and is killed instantly by Bison melee attacks.
+- Actually added the .dll this time lmao
+- As a result, changed a few of the Bison config options.
+- Lots of under-the-hood changes to make the mod less boilerplate-y and easier for myself to make future additions to the mod.
+- In particular finally made use of the BaseModule class and dechunkified the PluginConfig. With that in mind, I HIGHLY recommend clearing your Config file for this update!
+- Changed Greater Wisps' Inferno Wheel from a secondary to a special ability.
+- Lunar Golems will no longer use Laser Sweep on airborne targets.
+- Solus Prospectors will no longer use Drill Burrow on airborne targets.
+
+## 1.7.0
+- Gave Greater Wisps a new ability: Inferno Wheel!
+- Added LanguageAPI dependency.
+- Added name tokens for the mod's CharacterBody projectiles. (Xi Core shows up as Xi Construct, as they share hitboxes - will look into this at some point).
+
 ## 1.6.0
 - Gave Larvae a new ability: Caustic Pod!
 - You can no longer play as the bison boulder by picking one up as Drifter.

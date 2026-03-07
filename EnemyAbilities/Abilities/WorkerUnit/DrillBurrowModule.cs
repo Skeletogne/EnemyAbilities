@@ -3,11 +3,12 @@ using R2API;
 using RoR2.Skills;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
+using RoR2BepInExPack.GameAssetPaths.Version_1_39_0;
 using RoR2.CharacterAI;
 using EntityStates;
 using System.Linq;
 using static EnemyAbilities.PluginConfig;
+using BepInEx.Configuration;
 
 namespace EnemyAbilities.Abilities.SolusProspector
 {
@@ -18,62 +19,73 @@ namespace EnemyAbilities.Abilities.SolusProspector
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC3_WorkerUnit.WorkerUnitBody_prefab).WaitForCompletion();
         private static GameObject masterPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC3_WorkerUnit.WorkerUnitMaster_prefab).WaitForCompletion();
 
-        public override void Awake()
+        internal static ConfigEntry<float> entryDuration;
+        internal static ConfigEntry<float> waitDuration;
+        internal static ConfigEntry<float> telegraphDuration;
+        internal static ConfigEntry<float> damageCoeff;
+        internal static ConfigEntry<float> radius;
+        internal static ConfigEntry<float> baseVelocity;
+        internal static ConfigEntry<float> cooldown;
+
+        public override void RegisterConfig()
         {
-            base.Awake();
+            base.RegisterConfig();
+            entryDuration = BindFloat("Burrow Entry Duration", 1f, "How long it takes for the Solus Prospector to burrow underground.", 0.2f, 2f, 0.1f, FormatType.Time);
+            waitDuration = BindFloat("Burrow Wait Duration", 1f, "How long the Solus Prospector remains burrowed without attacking", 0.2f, 2f, 0.1f, FormatType.Time);
+            telegraphDuration = BindFloat("Burrow Telegraph Duration", 1f, "How long the Solus Prospector telegraphs before bursting up from the ground", 0.2f, 2f, 0.1f, FormatType.Time);
+            radius = BindFloat("Burrow Radius", 6f, "The radius of the burrow attack explosion", 6f, 16f, 1f, FormatType.Distance);
+            damageCoeff = BindFloat("Burrow Damage Coefficient", 300f, "The damage coefficient of the burrow attack", 100f, 500f, 5f, FormatType.Percentage);
+            baseVelocity = BindFloat("Burrow Upwards Velocity Modifier", 250f, "The speed multiplier at which the Prospector is ejected from the ground", 100f, 500f, 10f, FormatType.Percentage);
+            cooldown = BindFloat("Burrow Cooldown", 15f, "The cooldown of the burrow", 8f, 30f, 0.1f, FormatType.Time);
+        }
+        public override void Initialise()
+        {
+            base.Initialise();
             CreateSkill();
         }
         public void CreateSkill()
         {
-            SkillDef drillBurrowSkillDef = ScriptableObject.CreateInstance<SkillDef>();
-            (drillBurrowSkillDef as ScriptableObject).name = "WorkerUnitBodyDrillBurrow";
-            drillBurrowSkillDef.skillName = "WorkerUnitDrillBurrow";
-            drillBurrowSkillDef.activationStateMachineName = "Weapon";
-            drillBurrowSkillDef.activationState = ContentAddition.AddEntityState<DrillBurrow>(out _);
-            drillBurrowSkillDef.baseRechargeInterval = burrowCooldown.Value;
-            drillBurrowSkillDef.cancelSprintingOnActivation = true;
-            drillBurrowSkillDef.isCombatSkill = true;
-            ContentAddition.AddSkillDef(drillBurrowSkillDef);
-
-            SkillFamily skillFamily = ScriptableObject.CreateInstance<SkillFamily>();
-            (skillFamily as ScriptableObject).name = "WorkerUnitSecondaryFamily";
-            skillFamily.variants = [new SkillFamily.Variant() { skillDef = drillBurrowSkillDef }];
-
-            GenericSkill skill = bodyPrefab.AddComponent<GenericSkill>();
-            skill.skillName = "WorkerUnitDrillBurrow";
-            skill._skillFamily = skillFamily;
-
-            SkillLocator locator = bodyPrefab.GetComponent<SkillLocator>();
-            locator.secondary = skill;
-
-            ContentAddition.AddSkillFamily(skillFamily);
-
-            AISkillDriver useSecondary = masterPrefab.AddComponent<AISkillDriver>();
-            useSecondary.customName = "useSecondary";
-            useSecondary.skillSlot = SkillSlot.Secondary;
-            useSecondary.requireSkillReady = true;
-            useSecondary.minDistance = 20f;
-            useSecondary.maxDistance = 50f;
-            useSecondary.selectionRequiresOnGround = true;
-            useSecondary.movementType = AISkillDriver.MovementType.Stop;
-            useSecondary.aimType = AISkillDriver.AimType.None;
-            useSecondary.ignoreNodeGraph = true;
-            useSecondary.maxUserHealthFraction = 1f;
-            masterPrefab.ReorderSkillDrivers(useSecondary, 0);
+            SkillDefData skillData = new SkillDefData
+            {
+                objectName = "WorkerUnitBodyDrillBurrow",
+                skillName = "WorkerUnitDrillBurrow",
+                esmName = "Weapon",
+                activationState = ContentAddition.AddEntityState<DrillBurrow>(out _),
+                cooldown = cooldown.Value,
+                combatSkill = true
+            };
+            SkillDef drillBurrow = CreateSkillDef<SkillDef>(skillData);
+            CreateGenericSkill(bodyPrefab, drillBurrow.skillName, "WorkerUnitSecondaryFamily", drillBurrow, SkillSlot.Secondary);
+            AISkillDriverData driverData = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "useSecondary",
+                skillSlot = SkillSlot.Secondary,
+                requireReady = true,
+                minDistance = 20f,
+                maxDistance = 50f,
+                selectionRequiresOnGround = true,
+                selectionRequiresTargetNonFlier = true,
+                movementType = AISkillDriver.MovementType.Stop,
+                aimType = AISkillDriver.AimType.None,
+                ignoreNodeGraph = true,
+                desiredIndex = 0
+            };
+            CreateAISkillDriver(driverData);
         }
     }
     public class DrillBurrow : BaseSkillState
     {
 
-        public static float baseWindupDuration = burrowEntryDuration.Value;
-        public static float baseBurrowDuration = burrowWaitDuration.Value;
-        public static float baseTelegraphDuration = burrowTelegraphDuration.Value;
+        public static float baseWindupDuration = DrillBurrowModule.entryDuration.Value;
+        public static float baseBurrowDuration = DrillBurrowModule.waitDuration.Value;
+        public static float baseTelegraphDuration = DrillBurrowModule.telegraphDuration.Value;
         public static float baseAttackDuration = 1f;
-        public static float blastRadius = burrowRadius.Value;
+        public static float blastRadius = DrillBurrowModule.radius.Value;
         public static float force = 1500f;
         public static Vector3 bonusForce = new Vector3(0f, 2500f, 0f);
-        public static float damageCoefficient = burrowDamageCoeff.Value / 100f;
-        public static float exitSpeedMultiplier = burrowBaseVelocity.Value / 100f;
+        public static float damageCoefficient = DrillBurrowModule.damageCoeff.Value / 100f;
+        public static float exitSpeedMultiplier = DrillBurrowModule.baseVelocity.Value / 100f;
         private static GameObject indicatorPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common.TeamAreaIndicator__GroundOnly_prefab).WaitForCompletion();
         private static GameObject explosionPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_BeetleGuard.BeetleGuardGroundSlam_prefab).WaitForCompletion();
         private static GameObject burrowPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_MiniMushroom.MiniMushroomPlantEffect_prefab).WaitForCompletion();

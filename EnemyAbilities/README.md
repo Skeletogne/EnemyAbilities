@@ -9,11 +9,12 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 - Inflicts Bleed
 - Will stun itself if it flies into a wall!
 
-## Bighorn Bison Secondary: Unearth Boulder
+## Bighorn Bison Secondary: Unearth Boulder (reworked!)
 
-- Unearths a boulder in front of it.
-- If the boulder is hit by a Bison's melee attack it is launched towards nearby targets!
-- Can be launched by any attack that deals more than 1000% damage! (watch out for Jellyfish!)
+- Unearths a boulder in front of it. This boulder has a healthbar and can be damaged by both enemies and players.
+- When the boulder is killed, it launches three mini-boulders in a spread towards the nearest enemy of the boulder's killer.
+- These mini-boulders explode on impact.
+- Melee-attacks from Bison will break the boulder instantly!
 
 ## Blind Pest Secondary: Thwomp Stomp
 
@@ -32,6 +33,12 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 - Launches a volley of five tar-filled grenades over cover to flush it's target out.
 - Only usable if it doesn't have line of sight, and can draw an arc to the target.
 
+## Greater Wisp Special: Inferno Wheel (new!)
+
+- Charges up a ring of powerful fireballs that spin around the Greater Wisp.
+- Fireballs explode and leave behind a large DoT zone on impact.
+- Each fireball can be damaged and destroyed.
+
 ## Grovetender Special: Mass Resurrect
 
 - Grovetenders passively collect gravestones when nearby enemies die.
@@ -39,18 +46,25 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 - Ghosts provide armour to the grovetender.
 - Only usable below 50% HP.
 
-## Larva Utility: Caustic Pod (new!)
+## Larva Utility: Caustic Pod
 
 - Launches a small blob of acid towards their target. Deals no impact damage.
 - Spawns a Caustic Pod at the location of impact that explodes upon taking damage.
 - Deals light AoE damage to all nearby bodies (both ally and enemy!), and applies poison.
 - Behaves similarly to Sulfur Pods (although deals less damage).
 
-## Lunar Chimera (Golem) Special: Laser Sweep (new!)
+## Lunar Chimera (Golem) Special: Laser Sweep
 
 - Sweeps a laser along the ground towards the player, igniting the ground.
 - Ignited ground deals light AoE, and explodes after a short delay.
 - Only usable below 90% HP. Has 2 charges by default. 
+
+## Solus Extractor Utility: Tendril Tether
+
+- Fires off a tendril towards it's target.
+- Hooks onto both terrain and units, pulling the Extractor towards them.
+- If the Extractor hits a player, it slows them, gains an attack speed boost, and a reset on their Extract ability.
+- Extractors now prioritise enemies that have items that they can actually steal.
 
 ## Solus Prospector Secondary: Drill Burrow
 
@@ -62,6 +76,7 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 - Deals damage dependent on the flung monster's weight.
 
 ## Xi Construct Secondary: Core Launch
+
 - Spins up to fire it's core at the nearest player.
 - The core embeds in the ground for a few seconds, and transfers any damage it takes to the Xi Construct.
 

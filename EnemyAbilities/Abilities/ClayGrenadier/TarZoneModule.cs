@@ -3,7 +3,7 @@ using RoR2.CharacterAI;
 using R2API;
 using RoR2;
 using RoR2.Skills;
-using RoR2BepInExPack.GameAssetPaths.Version_1_35_0;
+using RoR2BepInExPack.GameAssetPaths.Version_1_39_0;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using ThreeEyedGames;
@@ -14,6 +14,7 @@ using Mono.Cecil.Cil;
 using System;
 using static EnemyAbilities.PluginConfig;
 using EnemyAbilities.Abilities.XiConstruct;
+using BepInEx.Configuration;
 
 namespace EnemyAbilities.Abilities.ClayGrenadier
 {
@@ -34,9 +35,42 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
         public static GameObject tarImpactEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_ClayBruiser.ClayShockwaveEffect_prefab).WaitForCompletion().InstantiateClone("scalableTarImpactEffect");
         private static CharacterSpawnCard cscApothecary = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_DLC1_ClayGrenadier.cscClayGrenadier_asset).WaitForCompletion();
         private static GameObject chargeEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common_VFX.OmniImpactVFXLarge_prefab).WaitForCompletion();
-        public override void Awake()
+
+        internal static ConfigEntry<float> cooldown;
+        internal static ConfigEntry<float> minDamage;
+        internal static ConfigEntry<float> maxDamage;
+        internal static ConfigEntry<float> minRadius;
+        internal static ConfigEntry<float> maxRadius;
+        internal static ConfigEntry<float> healthPercentForFullCharge;
+        internal static ConfigEntry<float> healthThreshold;
+        internal static ConfigEntry<float> chargeTime;
+        internal static ConfigEntry<float> travelTime;
+        internal static ConfigEntry<float> fuseTime;
+        internal static ConfigEntry<float> playerDetonateDamage;
+        internal static ConfigEntry<float> dotZoneDamagePercent;
+        internal static ConfigEntry<float> dotDuration;
+
+        public override void RegisterConfig()
         {
-            CreateSkill();
+            base.RegisterConfig();
+            minDamage = BindFloat("Deluge Min Damage", 100f, "Minimum damage coefficient at zero charge", 50f, 200f, 5f, FormatType.Percentage);
+            maxDamage = BindFloat("Deluge Max Damage", 200f, "Maximum damage coefficient at full charge", 250f, 800f, 5f, FormatType.Percentage);
+            minRadius = BindFloat("Deluge Min Radius", 10f, "Minimum explosion radius at zero charge", 6f, 12f, 0.1f, FormatType.Distance);
+            maxRadius = BindFloat("Deluge Max Radius", 24f, "Maximum explosion radius at full charge", 14f, 30f, 0.1f, FormatType.Distance);
+            dotZoneDamagePercent = BindFloat("Deluge AoE Damage Percentage", 5f, "The damage of the AoE per tick as a percentage of the Detonation's damage. This will naturally increase the more the tar ball is charged.", 1f, 20f, 1f, FormatType.Percentage);
+            healthPercentForFullCharge = BindFloat("Health Percentage for Full Charge", 25f, "The percentage of max health that must be taken as damage during charging to reach full charge", 5f, 50f, 1f, FormatType.Percentage);
+            healthThreshold = BindFloat("Deluge Health Threshold", 60f, "The health threshold the Apothecary must be under to use Tar Deluge.", 10f, 100f, 1f, FormatType.Percentage);
+            dotDuration = BindFloat("Deluge Zone Duration", 20f, "The duration of time that the Tar Zone lingers for.", 8f, 60f, 0.1f, FormatType.Time);
+            chargeTime = BindFloat("Deluge Charge Time", 3f, "The time that the Apothecary spends charging the Tar Ball before firing it.", 1f, 5f, 0.1f, FormatType.Time);
+            travelTime = BindFloat("Deluge Travel Time", 3f, "The time that the Tar Ball spends in the air before reaching it's target.", 1f, 5f, 0.1f, FormatType.Time);
+            fuseTime = BindFloat("Deluge Fuse Time", 1f, "The time that the Tar Ball takes to explode after landing.", 0.2f, 2f, 0.1f, FormatType.Time);
+            playerDetonateDamage = BindFloat("Player Detonation Damage", 800f, "The damage coefficient of the Tar Ball if it's detonated by a player (through killing the apothecary whilst it's charging - the tar ball cannot be killed once airborne).", 350f, 1600f, 5f, FormatType.Percentage);
+            cooldown = BindFloat("Deluge Cooldown", 30f, "The cooldown of the Tar Deluge ability", 15f, 60f, 0.1f, FormatType.Time);
+        }
+        public override void Initialise()
+        {
+            base.Initialise();
+            SkillSetup();
             ModifyTarZonePrefab();
             ModifyBigTarBallPrefab();
             bodyPrefab.AddComponent<ClayGrenadierChargeController>();
@@ -87,8 +121,8 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             CharacterBody grenadier = DLC1Content.BodyPrefabs.ClayGrenadierBody;
             if (grenadier != null)
             {
-                grenadier.baseMaxHealth = 1400f;
-                grenadier.levelMaxHealth = 420f;
+                grenadier.baseMaxHealth = 1300f;
+                grenadier.levelMaxHealth = 390f;
             }
         }
         private void ExplodeBlobOnDeath(DamageReport damageReport)
@@ -127,48 +161,37 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 }
             }
         }
-        public void CreateSkill()
+        public void SkillSetup()
         {
-            EntityStateMachine weaponESM = bodyPrefab.AddComponent<EntityStateMachine>();
-            weaponESM.customName = "Weapon";
-            weaponESM.initialStateType = new global::EntityStates.SerializableEntityStateType(typeof(global::EntityStates.Idle));
-            weaponESM.mainStateType = new global::EntityStates.SerializableEntityStateType(typeof(global::EntityStates.Idle));
+            EntityStateMachine weaponESM = CreateEntityStateMachine(bodyPrefab, "Weapon");
+            SkillDefData skillData = new SkillDefData
+            {
+                objectName = "ClayGrenadierBodyTarZone",
+                skillName = "ClayGrenadierTarZone",
+                esmName = weaponESM.customName,
+                activationState = ContentAddition.AddEntityState<FireBigBlob>(out _),
+                cooldown = cooldown.Value,
+                combatSkill = true
+            };
+            SkillDef tarZone = CreateSkillDef<SkillDef>(skillData);
+            CreateGenericSkill(bodyPrefab, tarZone.skillName, "ClayGrenadierSpecialFamily", tarZone, SkillSlot.Special);
+            AISkillDriverData driverData = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = "useSpecial",
+                skillSlot = SkillSlot.Special,
+                requireReady = true,
+                minDistance = 0f,
+                maxDistance = 100f,
+                maxHealthFraction = (healthThreshold.Value / 100f),
+                selectionRequiresTargetLoS = true,
+                targetType = AISkillDriver.TargetType.CurrentEnemy,
+                movementType = AISkillDriver.MovementType.Stop,
+                aimType = AISkillDriver.AimType.AtCurrentEnemy,
+                desiredIndex = 0
+            };
+            CreateAISkillDriver(driverData);
 
-            SkillDef tarZoneSkill = ScriptableObject.CreateInstance<SkillDef>();
-            (tarZoneSkill as ScriptableObject).name = "ClayGrenadierBodyTarZone";
-            tarZoneSkill.skillName = "ClayGrenadierTarZone";
-            tarZoneSkill.activationStateMachineName = "Weapon";
-            tarZoneSkill.activationState = ContentAddition.AddEntityState<FireBigBlob>(out _);
-            tarZoneSkill.baseRechargeInterval = delugeCooldown.Value;
-            tarZoneSkill.cancelSprintingOnActivation = true;
-            tarZoneSkill.isCombatSkill = true;
-            ContentAddition.AddSkillDef(tarZoneSkill);
-
-            SkillFamily skillFamily = ScriptableObject.CreateInstance<SkillFamily>();
-            (skillFamily as ScriptableObject).name = "ClayGrenadierSpecialFamily";
-            skillFamily.variants = [new SkillFamily.Variant() { skillDef = tarZoneSkill }];
-
-            GenericSkill skill = bodyPrefab.AddComponent<GenericSkill>();
-            skill.skillName = "ClayGrenadierTarZone";
-            skill._skillFamily = skillFamily;
-
-            SkillLocator locator = bodyPrefab.GetComponent<SkillLocator>();
-            locator.special = skill;
-
-            ContentAddition.AddSkillFamily(skillFamily);
-
-            AISkillDriver useSpecial = masterPrefab.AddComponent<AISkillDriver>();
-            useSpecial.customName = "useSpecial";
-            useSpecial.skillSlot = SkillSlot.Special;
-            useSpecial.requireSkillReady = true;
-            useSpecial.minDistance = 0f;
-            useSpecial.maxDistance = 100f;
-            useSpecial.maxUserHealthFraction = (delugeHealthThreshold.Value / 100f);
-            useSpecial.selectionRequiresTargetLoS = true;
-            useSpecial.moveTargetType = AISkillDriver.TargetType.CurrentEnemy;
-            useSpecial.movementType = AISkillDriver.MovementType.ChaseMoveTarget;
-            useSpecial.aimType = AISkillDriver.AimType.AtCurrentEnemy;
-            masterPrefab.ReorderSkillDrivers(useSpecial, 0);
         }
         public void ModifyTarZonePrefab()
         {
@@ -232,14 +255,14 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             impact.childrenCount = 1;
             impact.childrenProjectilePrefab = tarZoneProjectile;
             impact.fireChildren = true;
-            impact.childrenDamageCoefficient = delugeDoTZoneDamagePercentage.Value / 100f;
+            impact.childrenDamageCoefficient = dotZoneDamagePercent.Value / 100f;
             impact.preserveExplosionOrientation = false;
             impact.useChildRotation = true;
             impact.destroyOnWorld = false;
             impact.destroyOnEnemy = false;
             impact.impactOnWorld = true;
             impact.timerAfterImpact = true;
-            impact.lifetimeAfterImpact = delugeFuseTime.Value;
+            impact.lifetimeAfterImpact = fuseTime.Value;
             impact.explodeOnLifeTimeExpiration = false;
             impact.lifetime = 20f;
 
@@ -291,7 +314,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
         {
             private static float baseWindupDuration = 0.2f;
             private float windupDuration;
-            private static float baseChargeDuration = delugeChargeTime.Value;
+            private static float baseChargeDuration = chargeTime.Value;
             private float chargeDuration;
             private bool spawnedProjectile;
             private bool launchedProjectile;
@@ -349,7 +372,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 {
                     endPosition = hit.point;
                 }
-                Vector3 velocity = Trajectory.CalculateInitialVelocityFromTime(startPosition, endPosition, delugeTravelTime.Value, gravity: Physics.gravity.y * 0.5f);
+                Vector3 velocity = Trajectory.CalculateInitialVelocityFromTime(startPosition, endPosition, travelTime.Value, gravity: Physics.gravity.y * 0.5f);
                 if (chargeController.charging)
                 {
                     chargeController.StopChargingAndLaunchProjectile(velocity);
@@ -380,10 +403,10 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             private EffectManagerHelper _emh_bubblesInstance;
             private Vector3 effectOffset = new Vector3(0f, -4f, 0f);
             public float chargePercentage;
-            private static float lifetime = delugeDoTDuration.Value;
+            private static float lifetime = dotDuration.Value;
             private float stopwatch;
-            private float minRadius = delugeMinRadius.Value;
-            private float maxRadius = delugeMaxRadius.Value;
+            private float minRadius = TarZoneModule.minRadius.Value; //confusing variable names, might want to change
+            private float maxRadius = TarZoneModule.maxRadius.Value;
             private float radius;
             public void Start()
             {
@@ -517,7 +540,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
         public class ClayGrenadierChargeController : MonoBehaviour
         {
             public float percentageHealthTaken = 0f;
-            private static float maxPercentageHealthTaken = delugeDamagePercetangeForFullCharge.Value / 100f;
+            private static float maxPercentageHealthTaken = TarZoneModule.healthPercentForFullCharge.Value / 100f;
             public bool charging = false;
             private Transform tarBallTransform;
             private CharacterBody body;
@@ -610,9 +633,9 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 }
                 if (attackerBody != null && attackerBody.teamComponent != null)
                 {
-                    float radius = delugeMinRadius.Value + percentageCharge * (delugeMaxRadius.Value - delugeMinRadius.Value);
+                    float radius = minRadius.Value + percentageCharge * (maxRadius.Value - minRadius.Value);
                     TeamIndex teamIndex = attackerBody.teamComponent.teamIndex;
-                    float playerDamage = (delugePlayerDetonateDamage.Value / 100f) * attackerBody.damage;
+                    float playerDamage = (playerDetonateDamage.Value / 100f) * attackerBody.damage;
                     float nonPlayerDamage = 1f * attackerBody.damage;
                     BlastAttack attack = new BlastAttack();
                     attack.radius = radius;
@@ -652,8 +675,8 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                     collider.enabled = true;
                     bigTarBlob.chargePercentage = percentageCharge;
 
-                    float radius = delugeMinRadius.Value + (percentageCharge * (delugeMaxRadius.Value - delugeMinRadius.Value));
-                    float damage = delugeMinDamage.Value / 100f + (percentageCharge * (delugeMaxDamage.Value / 100f - delugeMinDamage.Value / 100f));
+                    float radius = minRadius.Value + (percentageCharge * (maxRadius.Value - minRadius.Value));
+                    float damage = minDamage.Value / 100f + (percentageCharge * (maxDamage.Value / 100f - minDamage.Value / 100f));
 
                     impact.blastRadius = radius;
                     damageComponent.damage = damage * body.damage;
