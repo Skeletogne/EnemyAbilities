@@ -296,8 +296,8 @@ namespace EnemyAbilities.Abilities.IronHauler
             {
                 return false;
             }
-            //filters out other haulers
-            if (targetBody.bodyIndex == BodyCatalog.FindBodyIndexCaseInsensitive("IronHaulerBody"))
+            //filters out other haulers (and scorchlings since they otherwise meet criteria)
+            if (targetBody.bodyIndex == DLC3Content.BodyPrefabs.IronHaulerBody.bodyIndex || targetBody.bodyIndex == DLC2Content.BodyPrefabs.ScorchlingBody.bodyIndex)
             {
                 return false;
             }

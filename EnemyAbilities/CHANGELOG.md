@@ -1,4 +1,10 @@
-﻿# Changelog
+# Changelog
+
+## 1.10.0
+- Gave Alpha Constructs a new ability: Alpha Tripwire!
+- Greater Wisp Fire Carousel fireballs now correctly scale max health with level.
+- Clay Templars have less endlag on their attacks, which should encourage them to use Cluster Grenade more often.
+- Solus Transporters can no longer pick up and throw Scorch Worms.
 
 ## 1.9.0
 - Gave Solus Extractors a new ability: Tendril Tether!
@@ -8,8 +14,8 @@
 
 ## 1.8.0
 - Reworked the Bison Boulder ability to make it less janky! Can be damaged by both players and enemies, launches three mini-boulders on death and is killed instantly by Bison melee attacks.
-- Actually added the .dll this time lmao
 - As a result, changed a few of the Bison config options.
+- Actually added the .dll this time lmao
 - Lots of under-the-hood changes to make the mod less boilerplate-y and easier for myself to make future additions to the mod.
 - In particular finally made use of the BaseModule class and dechunkified the PluginConfig. With that in mind, I HIGHLY recommend clearing your Config file for this update!
 - Changed Greater Wisps' Inferno Wheel from a secondary to a special ability.

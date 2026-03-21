@@ -464,7 +464,7 @@ namespace EnemyAbilities.Abilities.ExtractorUnit
                     tetherVFXOrigin.SetTetheredTransforms([ownerTransform]);
                     tetherCreated = true;
                 }
-                if (impact)
+                if (impact && ownerBody != null)
                 {
                     Vector3 direction = (gameObject.transform.position - ownerBody.transform.position).normalized;
                     Vector3 velocity = direction * hookSpeed;

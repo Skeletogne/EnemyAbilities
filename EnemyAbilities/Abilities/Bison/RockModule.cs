@@ -62,36 +62,22 @@ namespace EnemyAbilities.Abilities.Bison
             bodyPrefab.GetComponent<SetStateOnHurt>().hitThreshold = 0.3f;
             On.RoR2.HealthComponent.TakeDamageProcess += ModifyBisonDamageAgainstRock;
             GlobalEventManager.onCharacterDeathGlobal += OnCharacterDeath;
-            IL.RoR2.CharacterBody.RecalculateStats += (il) =>
+            Utils.AddHealthOverride((originalMaxHealth, body) =>
             {
-                ILCursor c1 = new ILCursor(il);
-                MethodInfo methodInfo = AccessTools.PropertySetter(typeof(CharacterBody), nameof(CharacterBody.maxHealth));
-                if (c1.TryGotoNext(
-                    x => x.MatchCallOrCallvirt(methodInfo)
-                ))
+                if (body == null || body.master != null)
                 {
-                    c1.Emit(OpCodes.Ldarg_0);
-                    c1.EmitDelegate<Func<float, CharacterBody, float>>((originalMaxHealth, characterBody) =>
-                    {
-                        //filters out most normal enemies, stops us from doing GetComponent EVERY time recalc stats is called
-                        if (characterBody.master == null)
-                        {
-                            ProjectileMegaBisonRock component = characterBody.gameObject.GetComponent<ProjectileMegaBisonRock>();
-                            if (component != null)
-                            {
-                                float healthPerLevel = rockMaxHealth.Value * 0.3f;
-                                float newHealth = rockMaxHealth.Value + (((int)Run.instance.ambientLevel - 1) * healthPerLevel);
-                                return newHealth;
-                            }
-                        }
-                        return originalMaxHealth;
-                    });
+                    return originalMaxHealth;
                 }
-                else
+                ProjectileMegaBisonRock rockComponent = body.gameObject.GetComponent<ProjectileMegaBisonRock>();
+                if (rockComponent == null)
                 {
-                    Log.Error($"IL.RoR2.CharacterBody.RecalculateStats Cursor c1 failed to match!");
+                    return originalMaxHealth;
                 }
-            };
+                float healthPerLevel = rockMaxHealth.Value * 0.3f;
+                float ambientLevel = Run.instance.ambientLevel;
+                float newMaxHealth = rockMaxHealth.Value + (healthPerLevel * (ambientLevel - 1));
+                return newMaxHealth;
+            });
         }
         private void OnCharacterDeath(DamageReport report)
         {

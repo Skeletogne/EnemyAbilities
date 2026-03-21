@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using EntityStates;
-using HG;
 using R2API;
 using RoR2;
 using RoR2.Audio;
@@ -16,7 +13,6 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.Networking;
 using ThreeEyedGames;
 using static EnemyAbilities.PluginConfig;
-using System.Runtime.CompilerServices;
 using BepInEx.Configuration;
 
 //make config options
@@ -73,6 +69,22 @@ namespace EnemyAbilities.Abilities.GreaterWisp
             greaterWispBody.baseMaxHealth += 100f;
             greaterWispBody.levelMaxHealth += 30f;
             cscGreaterWisp.directorCreditCost = 175;
+            Utils.AddHealthOverride((originalMaxHealth, body) =>
+            {
+                if (body == null || body.master != null)
+                {
+                    return originalMaxHealth;
+                }
+                ProjectileCarouselFireball carouselComponent = body.gameObject.GetComponent<ProjectileCarouselFireball>();
+                if (carouselComponent == null)
+                {
+                    return originalMaxHealth;
+                }
+                float healthPerLevel = projectileHealth.Value * 0.3f;
+                float ambientLevel = Run.instance.ambientLevel;
+                float newMaxHealth = projectileHealth.Value + (healthPerLevel * (ambientLevel - 1));
+                return newMaxHealth;
+            });
         }
         public void CreateSkill()
         {

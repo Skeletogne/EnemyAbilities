@@ -9,10 +9,12 @@ using RoR2.CharacterAI;
 using JetBrains.Annotations;
 using RoR2.Projectile;
 using BepInEx.Configuration;
+using MiscFixes.Modules;
+using EntityStates.ClayBruiser.Weapon;
 
 namespace EnemyAbilities.Abilities.ClayBruiser
 {
-    [EnemyAbilities.ModuleInfo("Cluster Grenade", "Gives Clay Templars a new utility:\n- Cluster Grenade: Used when a Clay Templar has seen a player recently but doesn't have line of sight, fires a barrage of five Tar Grenades in an arc towards the player.", "Clay Templar", true)]
+    [EnemyAbilities.ModuleInfo("Cluster Grenade", "Gives Clay Templars a new utility:\n- Cluster Grenade: Used when a Clay Templar has seen a player recently but doesn't have line of sight, fires a barrage of five Tar Grenades in an arc towards the player. This module also reduces the very long wind-downs on Clay Templar attacks.", "Clay Templar", true)]
     public class ClusterGrenadeModule : BaseModule
     {
         public static GameObject projectilePrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Commando.CommandoGrenadeProjectile_prefab).WaitForCompletion().InstantiateClone("clayGrenadeProjectile");
@@ -20,6 +22,8 @@ namespace EnemyAbilities.Abilities.ClayBruiser
         private static GameObject masterPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_ClayBruiser.ClayBruiserMaster_prefab).WaitForCompletion();
         private static GameObject ghostPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Commando.CommandoGrenadeGhost_prefab).WaitForCompletion().InstantiateClone("clayGrenadeProjectileGhost");
         private static GameObject explosionPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_ClayGrenadier.ClayGrenadierBarrelExplosion_prefab).WaitForCompletion();
+        private static EntityStateConfiguration escMinigunSpinDown = Addressables.LoadAssetAsync<EntityStateConfiguration>(RoR2_Base_ClayBruiser.EntityStates_ClayBruiser_Weapon_MinigunSpinDown_asset).WaitForCompletion();
+        private static EntityStateConfiguration escSonicBoom = Addressables.LoadAssetAsync<EntityStateConfiguration>(RoR2_Base_ClayBruiser.EntityStates_ClayBruiser_Weapon_FireSonicBoom_asset).WaitForCompletion();
 
         internal static ConfigEntry<float> grenadeCount;
         internal static ConfigEntry<float> grenadeDamageCoeff;
@@ -40,6 +44,9 @@ namespace EnemyAbilities.Abilities.ClayBruiser
             CreateSkill();
             SetUpProjectilePrefab();
             bodyPrefab.AddComponent<ClayBruiserUtilityController>();
+            escMinigunSpinDown.TryModifyFieldValue(nameof(MinigunSpinDown.baseDuration), 0.5f);
+            escSonicBoom.TryModifyFieldValue(nameof(FireSonicBoom.idealDistanceToPlaceTargets), 30f);
+            escSonicBoom.TryModifyFieldValue(nameof(FireSonicBoom.baseDuration), 0.5f);
         }
         private void SetUpProjectilePrefab()
         {
@@ -131,7 +138,6 @@ namespace EnemyAbilities.Abilities.ClayBruiser
     }
     public class FireClusterGrenades : BaseSkillState
     {
-
         private float duration;
         private ClayBruiserUtilityController controller;
         private int grenadeCount = (int)ClusterGrenadeModule.grenadeCount.Value;

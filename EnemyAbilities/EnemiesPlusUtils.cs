@@ -1,7 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using HarmonyLib;
 using HG;
+using Mono.Cecil.Cil;
+using MonoMod.Cil;
 using RoR2;
 using RoR2.Audio;
 using RoR2.CharacterAI;
@@ -339,6 +343,46 @@ namespace EnemyAbilities
                     GlobalEventManager.instance.OnHitAll(damageInfo, collider.gameObject);
                 }
             }
+        }
+    }
+    //okay now the rest of this is my code :)
+    public static class Utils
+    {
+        //health override functions for projectiles to make them actually properly scale with level
+        //mightn't be the best way of doing this if modules ever need to be dynamically activated/deactivated due to the static list?
+        private static readonly List<Func<float, CharacterBody, float>> projectileHealthOverrides = new();
+        public static void AddHealthOverride(Func<float, CharacterBody, float> func)
+        {
+            projectileHealthOverrides.Add(func);
+        }
+        public static void Init()
+        {
+            IL.RoR2.CharacterBody.RecalculateStats += (il) =>
+            {
+                ILCursor c1 = new ILCursor(il);
+                MethodInfo methodInfo = AccessTools.PropertySetter(typeof(CharacterBody), nameof(CharacterBody.maxHealth));
+                if (c1.TryGotoNext(x => x.MatchCallOrCallvirt(methodInfo)))
+                {
+                    c1.Emit(OpCodes.Ldarg_0);
+                    c1.EmitDelegate<Func<float, CharacterBody, float>>((originalMaxHealth, characterBody) =>
+                    {
+                        //checks all of the overrides, runs them
+                        foreach (var healthOverride in projectileHealthOverrides)
+                        {
+                            float newHealth = healthOverride(originalMaxHealth, characterBody);
+                            if (newHealth != originalMaxHealth)
+                            {
+                                return newHealth;
+                            }
+                        }
+                        return originalMaxHealth;
+                    });
+                }
+                else
+                {
+                    Log.Error($"IL.RoR2.CharacterBody.RecalculateStats health override hook failed!");
+                }
+            };
         }
     }
 }

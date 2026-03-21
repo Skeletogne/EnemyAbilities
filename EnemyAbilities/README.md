@@ -9,7 +9,13 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 - Inflicts Bleed
 - Will stun itself if it flies into a wall!
 
-## Bighorn Bison Secondary: Unearth Boulder (reworked!)
+## Alpha Construct: Alpha Tripwire (new!)
+
+- Creates tripwires between themselves and other Alpha Constructs.
+- Walking into these tripwires deals a heavy burst of damage, and can both root and slow.
+- Watch your step!
+
+## Bighorn Bison Secondary: Unearth Boulder
 
 - Unearths a boulder in front of it. This boulder has a healthbar and can be damaged by both enemies and players.
 - When the boulder is killed, it launches three mini-boulders in a spread towards the nearest enemy of the boulder's killer.
@@ -33,7 +39,7 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 - Launches a volley of five tar-filled grenades over cover to flush it's target out.
 - Only usable if it doesn't have line of sight, and can draw an arc to the target.
 
-## Greater Wisp Special: Inferno Wheel (new!)
+## Greater Wisp Special: Inferno Wheel
 
 - Charges up a ring of powerful fireballs that spin around the Greater Wisp.
 - Fireballs explode and leave behind a large DoT zone on impact.
@@ -53,7 +59,7 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 - Deals light AoE damage to all nearby bodies (both ally and enemy!), and applies poison.
 - Behaves similarly to Sulfur Pods (although deals less damage).
 
-## Lunar Chimera (Golem) Special: Laser Sweep
+## Lunar Golem Special: Laser Sweep
 
 - Sweeps a laser along the ground towards the player, igniting the ground.
 - Ignited ground deals light AoE, and explodes after a short delay.
