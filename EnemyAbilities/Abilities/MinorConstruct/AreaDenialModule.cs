@@ -320,11 +320,11 @@ namespace EnemyAbilities.Abilities.MinorConstruct
                 float slowDuration = tripwireSlowDuration.Value;
                 if (slowDuration > 0f)
                 {
-                    target.AddTimedBuff(RoR2Content.Buffs.LunarSecondaryRoot, slowDuration);
+                    target.AddTimedBuff(RoR2Content.Buffs.Slow60, slowDuration);
                 }
                 if (rootDuration > 0f)
                 {
-                    target.AddTimedBuff(RoR2Content.Buffs.Slow60, rootDuration);
+                    target.AddTimedBuff(RoR2Content.Buffs.LunarSecondaryRoot, rootDuration);
                 }
                 if (target.rigidbody != null)
                 {
