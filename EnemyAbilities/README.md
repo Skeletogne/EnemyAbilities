@@ -9,7 +9,7 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 - Inflicts Bleed
 - Will stun itself if it flies into a wall!
 
-## Alpha Construct: Alpha Tripwire (new!)
+## Alpha Construct: Alpha Tripwire
 
 - Creates tripwires between themselves and other Alpha Constructs.
 - Walking into these tripwires deals a heavy burst of damage, and can both root and slow.
@@ -80,6 +80,12 @@ Most abilities increase the difficulty of fighting a given enemy, however some a
 
 - Picks up monsters with a tractor beam, before tossing them at its target.
 - Deals damage dependent on the flung monster's weight.
+
+## Stone Titan Primary: Seismic Shockwave (new)
+
+- Jumps and upon landing creates a slow-moving radial shockwave.
+- Can be jumped over!
+- Knocks both players and monsters up into the air!
 
 ## Xi Construct Secondary: Core Launch
 

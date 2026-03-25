@@ -103,6 +103,7 @@ namespace EnemyAbilities.Abilities.MinorConstruct
             private float checkConnectionTimer;
             public static float checkConnectionInterval = 0.1f;
             private static float maxDistance = tripwireMaxLength.Value;
+            private static float minDistance = 3f;
             private static float laserActivateDelay = tripwireActivationDelay.Value;
             private float flashInterval = 0.1f;
             private List<AreaDenialConnection> outgoingConnections = new List<AreaDenialConnection>();
@@ -394,7 +395,11 @@ namespace EnemyAbilities.Abilities.MinorConstruct
                 Vector3 transmitterPos = body.aimOriginTransform.position;
                 Vector3 receiverPos = receiverBody.aimOriginTransform.position;
                 float dist = Vector3.Distance(transmitterPos, receiverPos);
-                if (dist > maxDistance)
+                if (dist > maxDistance || dist < minDistance)
+                {
+                    return false;
+                }
+                if (receiverBody.currentVehicle != null || body.currentVehicle != null)
                 {
                     return false;
                 }

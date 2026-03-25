@@ -43,6 +43,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
         internal static ConfigEntry<float> waitDuration;
         internal static ConfigEntry<float> windupDuration;
         internal static ConfigEntry<float> cooldown;
+        internal static ConfigEntry<bool> disableMainBodyHurtbox;
 
         public override void RegisterConfig()
         {
@@ -52,6 +53,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
             waitDuration = BindFloat("Core Wait Duration", 3.5f, "The amount of time that the Xi Construct will wait between firing and recalling it's Core.", 1f, 6f, 0.01f, FormatType.Time);
             windupDuration = BindFloat("Core Windup Duration", 0.75f, "The amount of time the Xi Construct will spin up for before firing it's core.", 0.5f, 2f, 0.01f, FormatType.Time);
             cooldown = BindFloat("Core Cooldown", 15f, "The cooldown of the core launch", 10f, 30f, 0.1f, FormatType.Time);
+            disableMainBodyHurtbox = BindBool("Core Disable Main Body Hurtbox", false, "If enabled, disables the Xi Construct's hurtbox whilst it's Core is ejected.");
         }
         public override void Initialise()
         {
@@ -449,7 +451,10 @@ namespace EnemyAbilities.Abilities.XiConstruct
             {
                 ToggleEyeVisual(true);
             }
-            ToggleHurtBoxes(true);
+            if (DetachEyeModule.disableMainBodyHurtbox.Value)
+            {
+                ToggleHurtBoxes(true);
+            }
             if (torquePID != null)
             {
                 torquePID.enabled = true;
@@ -549,7 +554,10 @@ namespace EnemyAbilities.Abilities.XiConstruct
                 ProjectileManager.instance.FireProjectile(projectilePrefab, aimRay.origin, modelRotation, characterBody.gameObject, (DetachEyeModule.damageCoeff.Value / 100f) * damageStat, force, RollCrit(), DamageColorIndex.Default, null, speedOverride, combo);
             }
             ToggleEyeVisual(false);
-            ToggleHurtBoxes(false);
+            if (DetachEyeModule.disableMainBodyHurtbox.Value)
+            {
+                ToggleHurtBoxes(false);
+            }
         }
         public void ToggleEyeVisual(bool state)
         {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.11.1
+- Xi Constructs no longer disable their main hurtbox during core launch. A new config option has been added to toggle this.
+- Alpha Constructs can no longer use Alpha Tripwire from inside Drifter's bag.
+- Alpha Tripwire no longer activates if the two Alpha Constructs are within 3m of eachother to prevent really small, hard-to-see tripwires.
+- Bison can no longer unearth a boulder within 5m of another boulder.
+- Changed this a few versions ago but forgot to include it and can't remember which version it was, so here it is - Clay Templars now have better VFX on their grenades.
+
 ## 1.11.0
 - Gave Stone Titans a new ability: Shockwave Stomp!
 - Changed the Bison Rock spawn sound to make it less ridiculously loud.

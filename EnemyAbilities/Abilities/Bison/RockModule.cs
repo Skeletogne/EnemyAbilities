@@ -12,11 +12,7 @@ using System.Linq;
 using static R2API.DamageAPI;
 using BepInEx.Configuration;
 using System.Collections.Generic;
-using HarmonyLib;
-using MonoMod.Cil;
-using System.Reflection;
-using Mono.Cecil.Cil;
-using System;
+using JetBrains.Annotations;
 
 namespace EnemyAbilities.Abilities.Bison
 {
@@ -128,7 +124,7 @@ namespace EnemyAbilities.Abilities.Bison
                 cooldown = rockCooldown.Value,
                 combatSkill = true
             };
-            SkillDef spawnRock = CreateSkillDef<SkillDef>(skillData);
+            SkillDef spawnRock = CreateSkillDef<SpawnRockSkillDef>(skillData);
 
             CreateGenericSkill(bodyPrefab, skillData.skillName, "BisonSecondaryFamily", spawnRock, SkillSlot.Secondary);
 
@@ -263,44 +259,88 @@ namespace EnemyAbilities.Abilities.Bison
             SphereCollider miniRockCollider = miniRockProjectile.GetComponent<SphereCollider>();
             miniRockCollider.radius = 0.75f;
         }
+        public static bool TryGetRockSpawnPosition(CharacterBody bisonBody, out Vector3 rockSpawnPosition)
+        {
+            rockSpawnPosition = Vector3.zero;
+            if (bisonBody == null)
+            {
+                return false;
+            }
+            Vector3 bisonPosition = bisonBody.transform.position;
+            Vector3 bisonForward = bisonBody.transform.forward;
+            bisonForward.y = 0f;
+            bisonForward.Normalize();
+            CharacterMaster master = bisonBody.master;
+            if (master != null)
+            {
+                BaseAI baseAI = master.gameObject.GetComponent<BaseAI>();
+                if (baseAI != null && baseAI.currentEnemy != null && baseAI.currentEnemy.characterBody != null)
+                {
+                    Vector3 targetPosition = baseAI.currentEnemy.characterBody.transform.position;
+                    Vector3 direction = targetPosition - bisonPosition;
+                    direction.y = 0f;
+                    bisonForward = direction.normalized;
+                }
+            }
+            Vector3 raycastStartPosition = (bisonBody.transform.position + bisonForward * SpawnRock.rockSpawnDistance) + new Vector3(0f, 15f, 0f);
+            bool success = Physics.Raycast(raycastStartPosition, Vector3.down, out RaycastHit hit, 30f, LayerIndex.world.mask, QueryTriggerInteraction.Ignore);
+            if (success)
+            {
+                rockSpawnPosition = hit.point + new Vector3(0f, 2f, 0f);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        public class SpawnRockSkillDef : SkillDef
+        {
+            private static float minDistanceFromAnotherRock = 5f;
+            public override bool IsReady([NotNull] GenericSkill skillSlot)
+            {
+                CharacterBody body = skillSlot.characterBody;
+                if (body == null)
+                {
+                    return false;
+                }
+                bool foundPosition = TryGetRockSpawnPosition(body, out Vector3 rockSpawnPosition);
+                if (foundPosition == true)
+                {
+                    List<ProjectileMegaBisonRock> rocks = InstanceTracker.GetInstancesList<ProjectileMegaBisonRock>();
+                    foreach (ProjectileMegaBisonRock rock in rocks)
+                    {
+                        Vector3 rockPosition = rock.transform.position;
+                        float distance = Vector3.Distance(rockSpawnPosition, rockPosition);
+                        if (distance < minDistanceFromAnotherRock)
+                        {
+                            return false;
+                        }
+                    }
+                    return base.IsReady(skillSlot);
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
         public class SpawnRock : BaseSkillState
         {
             private static float baseDuration = 0.25f;
             private float duration;
-            private static float rockSpawnDistance = 10f;
+            public static float rockSpawnDistance = 10f;
             private static GameObject projectilePrefab = RockModule.rockProjectile;
 
             public override void OnEnter()
             {
                 base.OnEnter();
                 duration = baseDuration / attackSpeedStat;
-                Vector3 bisonPosition = characterBody.transform.position;
-                Vector3 forward = characterBody.transform.forward;
-                forward.y = 0f;
-                forward = forward.normalized;
-                CharacterMaster master = characterBody.master;
-                if (master != null)
+                bool foundPosition = TryGetRockSpawnPosition(characterBody, out Vector3 rockSpawnPosition);
+                if (foundPosition && base.isAuthority)
                 {
-                    BaseAI baseAI = master.gameObject.GetComponent<BaseAI>();
-                    if (baseAI != null && baseAI.currentEnemy != null && baseAI.currentEnemy.characterBody != null)
-                    {
-                        Vector3 targetPosition = baseAI.currentEnemy.characterBody.transform.position;
-                        Vector3 direction = targetPosition - bisonPosition;
-                        direction.y = 0f;
-                        forward = direction.normalized;
-                    }
+                    ProjectileManager.instance.FireProjectile(projectilePrefab, rockSpawnPosition, Util.QuaternionSafeLookRotation(UnityEngine.Random.onUnitSphere), characterBody.gameObject, 0f, 0f, false, DamageColorIndex.Default, null, 0f, DamageType.Generic);
                 }
-                if (base.isAuthority)
-                {
-                    Vector3 raycastStartPosition = (characterBody.transform.position + forward * rockSpawnDistance) + new Vector3(0f, 15f, 0f);
-                    bool success = Physics.Raycast(raycastStartPosition, Vector3.down, out RaycastHit hit, 30f, LayerIndex.world.mask, QueryTriggerInteraction.Ignore);
-                    if (success)
-                    {
-                        Vector3 rockSpawnPosition = hit.point + new Vector3(0f, 2f, 0f);
-                        ProjectileManager.instance.FireProjectile(projectilePrefab, rockSpawnPosition, Util.QuaternionSafeLookRotation(UnityEngine.Random.onUnitSphere), characterBody.gameObject, 0f, 0f, false, DamageColorIndex.Default, null, 0f, DamageType.Generic);
-                    }
-                }
-
             }
             public override void OnExit()
             {
@@ -328,6 +368,14 @@ namespace EnemyAbilities.Abilities.Bison
             {
                 rigidbody = GetComponent<Rigidbody>();
                 healthComponent = GetComponent<HealthComponent>();
+            }
+            public void OnEnable()
+            {
+                InstanceTracker.Add(this);
+            }
+            public void OnDisable()
+            {
+                InstanceTracker.Remove(this);
             }
             public void OnProjectileImpact(ProjectileImpactInfo info)
             {
