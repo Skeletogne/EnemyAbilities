@@ -16,7 +16,8 @@ namespace EnemyAbilities
             Percentage = 1,
             Time = 2,
             Distance = 3,
-            Speed = 4
+            Speed = 4,
+            Multiplier = 5
         }
 
         public static void Init(ConfigFile cfg)
@@ -260,6 +261,8 @@ namespace EnemyAbilities
                 return "m";
             if (formatType == FormatType.Speed)
                 return "m/s";
+            if (formatType == FormatType.Multiplier)
+                return "x";
             else
                 return "";
         }

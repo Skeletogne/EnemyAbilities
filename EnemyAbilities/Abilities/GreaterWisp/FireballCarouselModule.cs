@@ -50,7 +50,7 @@ namespace EnemyAbilities.Abilities.GreaterWisp
             blastRadius = BindFloat("Inferno Wheel Explosion Radius", 12f, "Radius of each fireball explosion", 8f, 16f, 0.1f, FormatType.Distance);
             damageCoeff = BindFloat("Inferno Wheel Damage Coefficient", 400f, "Damage coefficient of each fireball", 200f, 600f, 5f, FormatType.Percentage);
             childDamageCoeff = BindFloat("Inferno Wheel DoT Damage %", 5f, "Damage per tick of the DoT zone as a percentage", 1f, 10f, 1f, FormatType.Percentage);
-            projectileHealth = BindFloat("Inferno Wheel Projectile Health", 130f, "Base health of each fireball projectile. Gains 30% of this value per level.", 100f, 200f, 10f);
+            projectileHealth = BindFloat("Inferno Wheel Projectile Health", 100f, "Base health of each fireball projectile. Gains 30% of this value per level.", 100f, 200f, 10f);
             projectileCount = BindFloat("Inferno Wheel Projectile Count", 3f, "Number of fireballs in the ring", 1f, 6f, 1f);
             spinupDuration = BindFloat("Inferno Wheel Spinup Duration", 7f, "Duration of the spinup phase before fireballs launch", 4f, 10f, 0.1f, FormatType.Time);
             igniteOnHit = BindBool("Inferno Wheel Ignite on Hit", true, "Whether fireballs ignite targets on hit");

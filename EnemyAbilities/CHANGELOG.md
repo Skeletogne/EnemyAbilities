@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.11.0
+- Gave Stone Titans a new ability: Shockwave Stomp!
+- Changed the Bison Rock spawn sound to make it less ridiculously loud.
+- Fixed a Swoop NRE related to them losing their target during windup.
+- Reduced the default base damage of Alpha Tripwire (350% => 250%)
+- Increased the speed of Grovetender gravestone projectiles (60 => 120)
+- Lowered the base health of Greater Wisp fireball carousel projectiles (130 +39 per level => 100 +30 per level)
+
+## 1.10.1
+- Fixed the Root and Slow configs for Alpha Constructs 
+
 ## 1.10.0
 - Gave Alpha Constructs a new ability: Alpha Tripwire!
 - Greater Wisp Fire Carousel fireballs now correctly scale max health with level.

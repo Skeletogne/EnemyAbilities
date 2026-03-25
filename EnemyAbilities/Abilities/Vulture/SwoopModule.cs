@@ -191,7 +191,7 @@ namespace EnemyAbilities.Abilities.Vulture
             }
             if (base.fixedAge > duration)
             {
-                if (ai.currentEnemy.characterBody.transform.position.y > characterBody.transform.position.y)
+                if (ai == null || ai.currentEnemy == null || ai.currentEnemy.characterBody == null || ai.currentEnemy.characterBody.transform.position.y > characterBody.transform.position.y)
                 {
                     outer.SetNextStateToMain();
                     return;

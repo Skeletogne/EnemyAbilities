@@ -375,7 +375,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
                         maxDistance = 125f,
                         owner = characterBody.gameObject,
                         rotation = rotation,
-                        speedOverride = 60f,
+                        speedOverride = 120f,
                         useSpeedOverride = true,
                         position = projectilePosition,
                     };

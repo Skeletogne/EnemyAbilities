@@ -59,15 +59,15 @@ namespace EnemyAbilities.Abilities.ClayBruiser
             {
                 bounciness = 0f,
                 bounceCombine = PhysicMaterialCombine.Minimum,
-                dynamicFriction = 1000f,
-                staticFriction = 1000f,
+                dynamicFriction = 400f,
+                staticFriction = 400f,
                 frictionCombine = PhysicMaterialCombine.Maximum,
             };
             collider.material = material;
             collider.sharedMaterial = material;
 
             MeshRenderer renderer = ghostPrefab.GetComponentInChildren<MeshRenderer>();
-            Material rendererMaterial = Addressables.LoadAssetAsync<Material>(RoR2_DLC1_ClayGrenadier.matClayGrenadierGrenade_mat).WaitForCompletion();
+            Material rendererMaterial = Addressables.LoadAssetAsync<Material>(RoR2_Base_Clay.matClayBubble_mat).WaitForCompletion();
             renderer.material = rendererMaterial;
             renderer.sharedMaterial = rendererMaterial;
 
@@ -75,6 +75,16 @@ namespace EnemyAbilities.Abilities.ClayBruiser
             ProjectileImpactExplosion impactExplosion = projectilePrefab.GetComponent<ProjectileImpactExplosion>();
             impactExplosion.blastRadius = grenadeExplosionRadius.Value;
             impactExplosion.impactEffect = explosionPrefab;
+            ghostPrefab.GetComponent<Transform>().localScale = Vector3.one * 2f;
+            TrailRenderer trail = ghostPrefab.AddComponent<TrailRenderer>();
+            trail.time = 0.5f;
+            trail.minVertexDistance = 0.1f;
+            trail.startWidth = 0.5f;
+            trail.endWidth = 0.1f;
+            trail.emitting = true;
+            trail.alignment = LineAlignment.View;
+            trail.textureMode = LineTextureMode.Stretch;
+            trail.material = Addressables.LoadAssetAsync<Material>(RoR2_Base_ClayBoss.matGooTrail_mat).WaitForCompletion();
         }
         private void CreateSkill()
         {
@@ -163,7 +173,6 @@ namespace EnemyAbilities.Abilities.ClayBruiser
             grenadeFireTimer -= Time.fixedDeltaTime;
             if (grenadeFireTimer <= 0f && grenadeIndex < grenadeCount)
             {
-                Util.PlaySound("Play_clayBruiser_attack2_shoot", characterBody.gameObject);
                 grenadeFireTimer += grenadeFireInterval;
                 if (controller.ai == null || controller.ai.currentEnemy == null || controller.ai.currentEnemy.characterBody == null)
                 {
@@ -171,7 +180,6 @@ namespace EnemyAbilities.Abilities.ClayBruiser
                     return;
                 }
                 Vector3 velocity = controller.FindBallisticVelocity(characterBody.aimOrigin, controller.ai.currentEnemy.characterBody.transform.position, controller.currentLowestArcTime);
-
                 Vector3 direction = velocity.normalized;
                 float speedOverride = velocity.magnitude;
                 Vector3 randomDeviation = Vector3.zero;
@@ -182,6 +190,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
                 if (base.isAuthority)
                 {
                     DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Utility, damageType = DamageType.ClayGoo };
+                    Util.PlaySound("Play_clayBruiser_attack2_shoot", characterBody.gameObject);
                     ProjectileManager.instance.FireProjectile(ClusterGrenadeModule.projectilePrefab, characterBody.aimOrigin, Util.QuaternionSafeLookRotation(direction + randomDeviation), characterBody.gameObject, damageStat * (ClusterGrenadeModule.grenadeDamageCoeff.Value / 100f), 1000f, RollCrit(), DamageColorIndex.Default, null, speedOverride, combo);
                 }
                 grenadeIndex++;

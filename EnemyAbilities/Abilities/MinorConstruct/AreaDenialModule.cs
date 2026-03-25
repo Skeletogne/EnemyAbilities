@@ -36,7 +36,7 @@ namespace EnemyAbilities.Abilities.MinorConstruct
             tripwireActivationDelay = BindFloat("Tripwire Activation Delay", 2f, "The warning duration before tripwires become live.", 0.5f, 4f, 0.1f, PluginConfig.FormatType.Time);
             tripwireRechargeTime = BindFloat("Tripwire Recharge Time", 4f, "The duration of time after a tripwire is triggered that the tripwire will reappear.", 1f, 10f, 0.1f, PluginConfig.FormatType.Time);
             tripwireRadius = BindFloat("Tripwire Radius", 2f, "How close a target has to be to the nearest point on the tripwire in order to trigger it.", 1f, 3f, 0.1f, PluginConfig.FormatType.Distance);
-            tripwireDamageCoefficient = BindFloat("Tripwire Damage Coefficient", 350f, "The damage coefficient of the tripwire.", 100f, 500f, 5f, PluginConfig.FormatType.Percentage);
+            tripwireDamageCoefficient = BindFloat("Tripwire Damage Coefficient", 250f, "The damage coefficient of the tripwire.", 100f, 500f, 5f, PluginConfig.FormatType.Percentage);
             tripwireRootDuration = BindFloat("Tripwire Root Duration", 1f, "The duration of the root upon triggering a tripwire.", 0f, 5f, 0.1f, PluginConfig.FormatType.Time);
             tripwireSlowDuration = BindFloat("Tripwire Slow Duration", 2f, "The duration of the slow upon triggering a tripwire.", 0f, 5f, 0.1f, PluginConfig.FormatType.Time);
         }
@@ -325,10 +325,10 @@ namespace EnemyAbilities.Abilities.MinorConstruct
                 if (rootDuration > 0f)
                 {
                     target.AddTimedBuff(RoR2Content.Buffs.LunarSecondaryRoot, rootDuration);
-                }
-                if (target.rigidbody != null)
-                {
-                    target.rigidbody.velocity = Vector3.zero;
+                    if (target.rigidbody != null)
+                    {
+                        target.rigidbody.velocity = Vector3.zero;
+                    }
                 }
                 if (target.characterMotor != null)
                 {

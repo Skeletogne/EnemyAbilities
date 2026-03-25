@@ -43,7 +43,7 @@ namespace EnemyAbilities.Abilities.Bison
         public override void RegisterConfig()
         {
             base.RegisterConfig();
-            rockCount = BindFloat("Rock Count", 3f, "The number of rocks spawned. Rock counts beyond 1 are distributed in an arc with max yaw 30", 1f, 5f, 1f);
+            rockCount = BindFloat("Rock Count", 3f, "The number of rocks spawned. Rock counts beyond 1 are distributed in an arc with max yaw 15", 1f, 5f, 1f);
             rockChildDamageCoeff = BindFloat("Rock Fragment Damage Coefficient", 300f, "Damage coeff of the mini-boulders that get launched", 100f, 1000f, 5f, PluginConfig.FormatType.Percentage);
             rockExplosionCoeff = BindFloat("Rock Explosion Damage Coefficient", 400f, "Damage coeff of the explosion when the big rock is killed", 100f, 1000f, 5f, PluginConfig.FormatType.Percentage);
             rockTravelTime = BindFloat("Rock Time to Target", 1.25f, "Duration of time between the rock being destroyed and the mini rock(s) reaching it's target. Proportional to arc height", 0.5f, 5f, 0.01f, PluginConfig.FormatType.Time);
@@ -353,7 +353,7 @@ namespace EnemyAbilities.Abilities.Bison
                 rigidbody.velocity = Vector3.zero;
                 rigidbody.angularVelocity = Vector3.zero;
                 rigidbody.constraints = RigidbodyConstraints.FreezeAll;
-                Util.PlaySound("Play_grandParent_attack1_boulderLarge_impact", this.gameObject);
+                Util.PlaySound("Play_titanboss_step", this.gameObject);
 
                 ProjectileController controller = GetComponent<ProjectileController>();
                 if (controller != null)
