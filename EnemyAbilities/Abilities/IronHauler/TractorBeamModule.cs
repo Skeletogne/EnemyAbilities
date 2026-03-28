@@ -709,6 +709,9 @@ namespace EnemyAbilities.Abilities.IronHauler
         private float delayTimer = 0f;
         public bool restore = false;
         private bool firedBlast = false;
+        private TrailRenderer trailRenderer;
+        private static Material trailMaterial = Addressables.LoadAssetAsync<Material>(RoR2_DLC3_IronHauler.matIronHaulerBeamTrail_mat).WaitForCompletion();
+        private GameObject trailObject;
         public class OriginalBehaviours
         {
             public bool HasCharMotor;
@@ -801,6 +804,22 @@ namespace EnemyAbilities.Abilities.IronHauler
             float scale = Mathf.Max(1f, 1 * ((hullRadius) + 5f));
             sphereVFXInstance.transform.localScale = new Vector3(scale, scale, scale);
             tractorBeamBonusDistance = baseTractorBeamBonusDistance;
+
+            //doesn't seem to behave for certain enemies >:(
+            trailObject = new GameObject();
+            trailObject.transform.position = body.corePosition;
+            trailRenderer = trailObject.AddComponent<TrailRenderer>();
+            if (trailRenderer != null)
+            {
+                trailRenderer.material = trailMaterial;
+                trailRenderer.materials = [trailMaterial];
+                trailRenderer.startWidth = 0.5f;
+                trailRenderer.endWidth = 0.2f;
+                trailRenderer.emitting = true;
+                trailRenderer.time = 0.4f;
+                trailRenderer.startColor = Color.blue;
+                trailRenderer.endColor = Color.white;
+            }
         }
         public void RecordAndSuppressBehaviours()
         {
@@ -842,6 +861,10 @@ namespace EnemyAbilities.Abilities.IronHauler
         }
         public void FixedUpdate()
         {
+            if (trailObject != null)
+            {
+                trailObject.transform.position = body.corePosition;
+            }
             if (origBehavioursRecorded == false)
             {
                 //done here rather than Awake() because of Vultures
@@ -1003,6 +1026,11 @@ namespace EnemyAbilities.Abilities.IronHauler
         }
         public void RestoreOriginalBehaviours()
         {
+            if (trailObject != null)
+            {
+                Destroy(trailRenderer);
+                Destroy(trailObject);
+            }
             body.SetBuffCount(TractorBeamModule.cargoBuffDef.buffIndex, 0);
             if (originalBehaviours.HasCharMotor && motor != null)
             {

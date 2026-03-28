@@ -36,10 +36,11 @@ namespace EnemyAbilities.Abilities.Bison
         internal static ConfigEntry<float> rockChildExplosionRadius;
         internal static ConfigEntry<float> rockMaxHealth;
         internal static ConfigEntry<float> rockCooldown;
+        internal static ConfigEntry<float> rockSpreadAngle;
         public override void RegisterConfig()
         {
             base.RegisterConfig();
-            rockCount = BindFloat("Rock Count", 3f, "The number of rocks spawned. Rock counts beyond 1 are distributed in an arc with max yaw 15", 1f, 5f, 1f);
+            rockCount = BindFloat("Rock Count", 3f, "The number of rocks spawned.", 1f, 5f, 1f);
             rockChildDamageCoeff = BindFloat("Rock Fragment Damage Coefficient", 300f, "Damage coeff of the mini-boulders that get launched", 100f, 1000f, 5f, PluginConfig.FormatType.Percentage);
             rockExplosionCoeff = BindFloat("Rock Explosion Damage Coefficient", 400f, "Damage coeff of the explosion when the big rock is killed", 100f, 1000f, 5f, PluginConfig.FormatType.Percentage);
             rockTravelTime = BindFloat("Rock Time to Target", 1.25f, "Duration of time between the rock being destroyed and the mini rock(s) reaching it's target. Proportional to arc height", 0.5f, 5f, 0.01f, PluginConfig.FormatType.Time);
@@ -47,7 +48,7 @@ namespace EnemyAbilities.Abilities.Bison
             rockChildExplosionRadius = BindFloat("Rock Fragment Explosion Radius", 8f, "Explosion radius of the rock fragments", 5f, 12f, 1f, PluginConfig.FormatType.Distance);
             rockCooldown = BindFloat("Rock Cooldown", 15f, "Cooldown before the ability can be activated again", 5f, 30f, 0.1f, PluginConfig.FormatType.Time);
             rockMaxHealth = BindFloat("Rock Health", 400f, "Max health of the rock at Level 1. Gains 30% of this value per level", 100f, 600f, 10f, PluginConfig.FormatType.None);
-
+            rockSpreadAngle = BindFloat("Rock Spread Angle", 22f, "The total spread angle of rocks beyond 1 launched by this ability.", 10f, 50f, 1f, PluginConfig.FormatType.None);
         }
         public override void Initialise()
         {
@@ -258,6 +259,21 @@ namespace EnemyAbilities.Abilities.Bison
             miniRockGhost.GetComponent<Transform>().localScale = Vector3.one * 0.4f;
             SphereCollider miniRockCollider = miniRockProjectile.GetComponent<SphereCollider>();
             miniRockCollider.radius = 0.75f;
+
+            Transform[] transformList = miniRockGhost.GetComponentsInChildren<Transform>();
+            foreach (Transform t in transformList)
+            {
+                if (t.gameObject.name == "Rotator")
+                {
+                    SetRandomRotation randomRotation = t.gameObject.AddComponent<SetRandomRotation>();
+                    randomRotation.setRandomXRotation = true;
+                    randomRotation.setRandomYRotation = true;
+                    randomRotation.setRandomZRotation = true;
+                }
+            }
+
+
+
         }
         public static bool TryGetRockSpawnPosition(CharacterBody bisonBody, out Vector3 rockSpawnPosition)
         {
@@ -363,7 +379,7 @@ namespace EnemyAbilities.Abilities.Bison
             private GameObject impactEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_BeetleQueen.BeetleQueenDeathImpact_prefab).WaitForCompletion();
             private GameObject explosionEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common_VFX.OmniExplosionVFX_prefab).WaitForCompletion();
             public int childCount = (int)rockCount.Value;
-            private float maxSpreadAngle = 15f;
+            private float maxSpreadAngle = rockSpreadAngle.Value;
             public void Start()
             {
                 rigidbody = GetComponent<Rigidbody>();

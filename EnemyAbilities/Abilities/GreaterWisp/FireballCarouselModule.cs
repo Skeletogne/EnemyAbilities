@@ -29,6 +29,7 @@ namespace EnemyAbilities.Abilities.GreaterWisp
         private static GameObject fireballGhost = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC2_Scorchling.ScorchlingBombGhost_prefab).WaitForCompletion().InstantiateClone("carouselFireballGhost");
         private static GameObject fireballDotZone = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_LunarExploder.LunarExploderProjectileDotZone_prefab).WaitForCompletion().InstantiateClone("greaterWispCarouselDotZone");
         private static CharacterSpawnCard cscGreaterWisp = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_Base_GreaterWisp.cscGreaterWisp_asset).WaitForCompletion();
+        private static GameObject auraEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC3_FriendUnit.FriendUnitChargeEffect_prefab).WaitForCompletion().InstantiateClone("fireballChargeEffect");
 
         internal static ConfigEntry<float> cooldown;
         internal static ConfigEntry<float> healthThreshold;
@@ -120,6 +121,29 @@ namespace EnemyAbilities.Abilities.GreaterWisp
         }
         public void CreateProjectilePrefab()
         {
+            Texture2D greaterWispFireTexture = Addressables.LoadAssetAsync<Texture2D>(RoR2_Base_Common_ColorRamps.texRampGreaterWisp_png).WaitForCompletion();
+            Texture2D greenTexture = Addressables.LoadAssetAsync<Texture2D>(RoR2_DLC2_FalseSonBoss.texFSBLunarSpikeRamp_png).WaitForCompletion();
+            Transform[] auraTransforms = auraEffect.GetComponentsInChildren<Transform>(); 
+            foreach (Transform transform in auraTransforms)
+            {
+                ParticleSystemRenderer particleSystemRenderer = transform.gameObject.GetComponent<ParticleSystemRenderer>();
+                if (particleSystemRenderer != null && particleSystemRenderer.material != null)
+                {
+                    Material material = new Material(particleSystemRenderer.material);
+                    material.SetTexture("_RemapTex", greaterWispFireTexture);
+                    particleSystemRenderer.material = material;
+                }
+                if (transform.gameObject.name == "Damage Field")
+                {
+                    ParticleSystem particleSystem = transform.gameObject.GetComponent<ParticleSystem>();
+                    ParticleSystem.MainModule main = particleSystem.main;
+                    main.startLifetime = 0.25f;
+                    ParticleSystem.EmissionModule emission = particleSystem.emission;
+                    emission.rateOverTime = 25f;
+                }
+            }
+
+
             ProjectileController controller = fireballProjectile.GetComponent<ProjectileController>();
             controller.ghostPrefab = fireballGhost;
             Transform ghostTransform = fireballGhost.GetComponent<Transform>();
@@ -147,6 +171,47 @@ namespace EnemyAbilities.Abilities.GreaterWisp
             carouselFireball.lifetime = 99f;
             carouselFireball.explodeOnLifeTimeExpiration = false;
 
+            Transform[] ghostTransformList = fireballGhost.GetComponentsInChildren<Transform>();
+            foreach (Transform t in ghostTransformList)
+            {
+                if (t.gameObject.name == "MagmaMeatball_Geo")
+                {
+                    MeshRenderer renderer = t.gameObject.GetComponent<MeshRenderer>();
+                    if (renderer != null)
+                    {
+                        Log.Debug($"Meatball Renderer is not null!");
+                        Material material = new Material(renderer.material);
+                        material.SetTexture("_RemapTex", greaterWispFireTexture);
+                        material.SetColor("_TintColor", new Color(0.4f, 1f, 0.1f, 1f));
+                        renderer.material = material;
+                    }
+                }
+                if (t.gameObject.name == "Point Light")
+                {
+                    Light meatballLight = t.gameObject.GetComponent<Light>();
+                    if (meatballLight != null)
+                    {
+                        Log.Debug($"Meatball Light is not null!");
+                        meatballLight.color = new Color(r: 0.400f, g: 1.000f, b: 0.100f, a: 1.000f);
+                        meatballLight.intensity = 3.5f;
+                        meatballLight.range = 7f;
+                    }
+                }
+                if (t.gameObject.name == "Trail")
+                {
+                    TrailRenderer trail = t.gameObject.GetComponent<TrailRenderer>();
+                    if (trail != null)
+                    {
+                        Log.Debug($"Meatball trail is not null!");
+                        Material material = new Material(trail.material);
+                        material.SetTexture("_RemapTex", greaterWispFireTexture);
+                        material.SetColor("_TintColor", new Color(0.4f, 1f, 0.1f, 1f));
+                        trail.material = material;
+                    }
+                }
+            }
+
+
             Transform[] fireDotZoneTransforms = fireballDotZone.GetComponentsInChildren<Transform>();
             for (int i = fireDotZoneTransforms.Length - 1; i >= 0; i--)
             {
@@ -156,7 +221,9 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                     Decal decal = t.gameObject.GetComponent<Decal>();
                     if (decal != null)
                     {
-                        decal.Material = Addressables.LoadAssetAsync<Material>(RoR2_DLC2_Chef.matChefOilPoolFireDecal_mat).WaitForCompletion();
+                        Material material = new Material(Addressables.LoadAssetAsync<Material>(RoR2_DLC2_Chef.matChefOilPoolFireDecal_mat).WaitForCompletion());
+                        material.SetTexture("_RemapTex", greaterWispFireTexture);
+                        decal.Material = material;
                     }
                 }
                 if (t.gameObject.name == "Point Light")
@@ -164,7 +231,7 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                     Light light = t.gameObject.GetComponent<Light>();
                     if (light != null)
                     {
-                        light.color = new Color(r: 1.000f, g: 0.500f, b: 0.100f, a: 1.000f);
+                        light.color = new Color(r: 0.400f, g: 1.000f, b: 0.100f, a: 1.000f);
 
                     }
                 }
@@ -179,7 +246,7 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                     if (renderer != null)
                     {
                         Material material = new Material(Addressables.LoadAssetAsync<Material>(RoR2_Base_Common_VFX.matGenericFire_mat).WaitForCompletion());
-                        material.color = Color.green; // :(
+                        material.SetTexture("_RemapTex", greaterWispFireTexture);
                         renderer.material = material;
                         renderer.sharedMaterial = material;
                     }
@@ -190,7 +257,7 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                     if (renderer != null)
                     {
                         Material material = new Material(Addressables.LoadAssetAsync<Material>(RoR2_Base_Common_VFX.matFireStaticLarge_mat).WaitForCompletion());
-                        material.color = Color.green; 
+                        material.SetTexture("_RemapTex", greaterWispFireTexture);
                         renderer.material = material;
                         renderer.sharedMaterial = material;
                     }
@@ -307,9 +374,7 @@ namespace EnemyAbilities.Abilities.GreaterWisp
             private float fireDuration;
             private CarouselController controller;
             private static float fallbackDuration = baseSpinupDuration + baseFireDuration + 3f;
-
             private static float recoveryDuration = 0.25f;
-
             private static float startRadius = 14f;
             private static float endRadius = 7f;
             private float radius;
@@ -320,9 +385,8 @@ namespace EnemyAbilities.Abilities.GreaterWisp
             private bool allFireballsLaunched = false;
             private float damageCoefficient = (damageCoeff.Value / 100f);
             private float projectileSpeed = FireballCarouselModule.projectileSpeed.Value;
-
+            private int projectilesReadied;
             private int projectileCount = (int)FireballCarouselModule.projectileCount.Value;
-
             private bool readyToLaunch = false;
 
             public override void OnEnter()
@@ -351,6 +415,7 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                     ProjectileManager.instance.FireProjectile(fireballProjectile, spawnPosition, Quaternion.identity, characterBody.gameObject, damageCoefficient * damageStat, 0f, RollCrit(), DamageColorIndex.Default, null, 0f, combo);
                 }
                 controller = characterBody.gameObject.GetComponent<CarouselController>();
+                projectilesReadied = 0;
             }
             public override void OnExit()
             {
@@ -393,7 +458,7 @@ namespace EnemyAbilities.Abilities.GreaterWisp
             }
             public void LaunchProjectile(ProjectileCarouselFireball fireball)
             {
-                Util.PlaySound("Play_lunar_wisp_attack2_launch", fireball.gameObject); 
+                Util.PlaySound("Play_mage_m1_shoot", fireball.gameObject);
                 fireball.destroyOnWorld = true;
                 fireball.destroyOnEnemy = true;
                 fireball.GetComponent<SphereCollider>().enabled = true;
@@ -437,9 +502,20 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                 {
                     if (readyToLaunch)
                     {
-                        LaunchProjectile(fireball);
-                        fireball.launched = true;
-                        return;
+                        projectilesReadied++;
+                        if (projectilesReadied > controller.fireballs.Count)
+                        {
+                            LaunchProjectile(fireball);
+                            fireball.launched = true;
+                            return;
+                        }
+                        else
+                        {
+                            Util.PlaySound("Play_lunar_wisp_attack2_launch", fireball.gameObject);
+                            GameObject auraInstance = Instantiate(auraEffect, fireball.gameObject.transform.position, Quaternion.identity);
+                            auraInstance.transform.parent = fireball.gameObject.transform;
+                            auraInstance.transform.localScale = Vector3.one * 4f;
+                        }
                     }
                 }
                 Vector3 positionOffset = (localRight * Mathf.Sin(angle) + localUp * Mathf.Cos(angle)) * radius;

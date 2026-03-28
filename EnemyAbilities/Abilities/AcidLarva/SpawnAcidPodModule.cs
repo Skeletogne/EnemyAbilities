@@ -43,7 +43,7 @@ namespace EnemyAbilities.Abilities.AcidLarva
             lifetime = BindFloat("Caustic Pod Lifetime", 30f, "How long the pod lasts before despawning", 10f, 60f, 1f, FormatType.Time);
             useRange = BindFloat("Caustic Pod Use Range", 30f, "Max range to use the ability", 15f, 50f, 0.1f, FormatType.Distance);
             poisonDuration = BindFloat("Caustic Pod Poison Duration", 5f, "Duration of the poison effect", 0f, 10f, 0.1f, FormatType.Time);
-            explosionRadius = BindFloat("Caustic Pod Explosion Radius", 12f, "Radius of the pod explosion", 6f, 18f, 0.1f, FormatType.Distance);
+            explosionRadius = BindFloat("Caustic Pod Explosion Radius", 8f, "Radius of the pod explosion", 6f, 18f, 0.1f, FormatType.Distance);
             travelTime = BindFloat("Caustic Pod Travel Time", 1.5f, "Time for the projectile to reach its target", 0.5f, 3f, 0.1f, FormatType.Time);
         }
         public override void Initialise()

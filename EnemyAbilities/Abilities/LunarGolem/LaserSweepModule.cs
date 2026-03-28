@@ -20,6 +20,7 @@ namespace EnemyAbilities.Abilities.LunarGolem
         private static GameObject masterPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_LunarGolem.LunarGolemMaster_prefab).WaitForCompletion();
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_LunarGolem.LunarGolemBody_prefab).WaitForCompletion();
         public static GameObject segmentPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common.FireTrailSegment_prefab).WaitForCompletion().InstantiateClone("lunarGolemFireTrail");
+        private static GameObject chargeEffectPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_LunarGolem.ChargeLunarGolemTwinShot_prefab).WaitForCompletion();
 
         internal static ConfigEntry<float> cooldown;
         internal static ConfigEntry<float> charges;
@@ -91,10 +92,13 @@ namespace EnemyAbilities.Abilities.LunarGolem
         public void ModifyLaserPrefab()
         {
             LineRenderer lineRenderer = laserPrefab.GetComponent<LineRenderer>();
-            lineRenderer.startWidth = 0.4f;
-            lineRenderer.endWidth = 0.8f;
-            lineRenderer.startColor = Color.red;
-            lineRenderer.endColor = Color.red;
+            lineRenderer.startWidth = 0.5f;
+            lineRenderer.endWidth = 0.5f;
+            lineRenderer.startColor = new Color(0f, 0.8f, 1f);
+            lineRenderer.endColor = new Color(0f, 0.8f, 1f);
+            Material laserMaterial = Addressables.LoadAssetAsync<Material>(RoR2_Junk_OrbitalLaser.matOrbitalLaserFiring_mat).WaitForCompletion();
+            lineRenderer.material = laserMaterial;
+            lineRenderer.materials = [laserMaterial];
         }
         public void ModifyFireSegmentPrefab()
         {
@@ -137,14 +141,16 @@ namespace EnemyAbilities.Abilities.LunarGolem
             private TrailDetonate trailDetonate;
             private bool shouldAddPoint;
             private BaseAI baseAI;
-            private uint soundID;
+
+            private GameObject chargeEffect;
 
             public override void OnEnter()
             {
                 base.OnEnter();
                 sweepDuration = baseSweepDuration / attackSpeedStat;
                 windupDuration = baseWindupDuration / attackSpeedStat;
-                soundID = Util.PlayAttackSpeedSound("Play_golem_laser_charge", characterBody.gameObject, attackSpeedStat);
+                //soundID = Util.PlayAttackSpeedSound("Play_golem_laser_charge", characterBody.gameObject, attackSpeedStat);
+                Util.PlaySound("Play_roboBall_attack2_mini_laser_start", characterBody.gameObject);
                 if (characterBody.master == null)
                 {
                     return;
@@ -196,6 +202,7 @@ namespace EnemyAbilities.Abilities.LunarGolem
                         if (muzzleTransform != null)
                         {
                             laserInstance = Instantiate(laserPrefab, muzzleTransform.position, muzzleTransform.rotation);
+                            chargeEffect = Instantiate(chargeEffectPrefab, muzzleTransform.position, muzzleTransform.rotation);
                         }
                         if (laserInstance != null)
                         {
@@ -209,6 +216,12 @@ namespace EnemyAbilities.Abilities.LunarGolem
                             }
                             laserLineComponent = laserInstance.GetComponent<LineRenderer>();
                         }
+                        if (chargeEffect != null)
+                        {
+                            chargeEffect.transform.parent = muzzleTransform;
+                            ScaleParticleSystemDuration component = chargeEffect.GetComponent<ScaleParticleSystemDuration>();
+                            component.newDuration = windupDuration + sweepDuration;
+                        }
                     }
                 }
 
@@ -216,11 +229,15 @@ namespace EnemyAbilities.Abilities.LunarGolem
             public override void OnExit()
             {
                 base.OnExit();
-                AkSoundEngine.StopPlayingID(soundID);
                 if (laserInstance != null)
                 {
                     Destroy(laserInstance);
                 }
+                if (chargeEffect != null)
+                {
+                    Destroy(chargeEffect);
+                }
+                Util.PlaySound("Play_roboBall_attack2_mini_laser_stop", characterBody.gameObject);
             }
             public override void Update()
             {

@@ -1,5 +1,14 @@
 # Changelog
 
+# 1.11.2
+- Added a config option for bison boulders for adjusting the spread angle.
+- Minor VFX update to Bison mini-boulders. (they start at a random rotation now, that's it)
+- Added extra sounds and visual cues to Clay Apothecary Tar Deluge
+- Added a trail effect to enemies thrown with Solus Transporters' tractor beam.
+- Made the Lunar Golem Laser Sweep blue. (now with extra sound and visual cues!)
+- Made the Greater Wisp Inferno Wheel green. (now also with extra sound and visual cues!)
+- Reduced default Caustic Pod explosion radius (12m => 8m)
+
 ## 1.11.1
 - Xi Constructs no longer disable their main hurtbox during core launch. A new config option has been added to toggle this.
 - Alpha Constructs can no longer use Alpha Tripwire from inside Drifter's bag.
@@ -13,7 +22,7 @@
 - Fixed a Swoop NRE related to them losing their target during windup.
 - Reduced the default base damage of Alpha Tripwire (350% => 250%)
 - Increased the speed of Grovetender gravestone projectiles (60 => 120)
-- Lowered the base health of Greater Wisp fireball carousel projectiles (130 +39 per level => 100 +30 per level)
+- Lowered the base health of Greater Wisp inferno wheel projectiles (130 +39 per level => 100 +30 per level)
 
 ## 1.10.1
 - Fixed the Root and Slow configs for Alpha Constructs 

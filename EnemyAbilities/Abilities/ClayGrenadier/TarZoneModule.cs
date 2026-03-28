@@ -13,7 +13,6 @@ using MonoMod.Cil;
 using Mono.Cecil.Cil;
 using System;
 using static EnemyAbilities.PluginConfig;
-using EnemyAbilities.Abilities.XiConstruct;
 using BepInEx.Configuration;
 
 namespace EnemyAbilities.Abilities.ClayGrenadier
@@ -35,6 +34,8 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
         public static GameObject tarImpactEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_ClayBruiser.ClayShockwaveEffect_prefab).WaitForCompletion().InstantiateClone("scalableTarImpactEffect");
         private static CharacterSpawnCard cscApothecary = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_DLC1_ClayGrenadier.cscClayGrenadier_asset).WaitForCompletion();
         private static GameObject chargeEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common_VFX.OmniImpactVFXLarge_prefab).WaitForCompletion();
+        private static Material tarMaterial = Addressables.LoadAssetAsync<Material>(RoR2_Base_ClayBoss.matGooTrail_mat).WaitForCompletion();
+        private static GameObject explosionVFX = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_ClayGrenadier.ClayGrenadierBarrelExplosion_prefab).WaitForCompletion();
 
         internal static ConfigEntry<float> cooldown;
         internal static ConfigEntry<float> minDamage;
@@ -286,17 +287,24 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             private Vector3 newGravity;
             private Rigidbody rigid;
             public float chargePercentage;
+            private ProjectileStickOnImpact stick;
+            private bool playedImpactSoundEffect;
+            private static GameObject indicatorPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common.TeamAreaIndicator__GroundOnly_prefab).WaitForCompletion();
+            private GameObject indicatorInstance;
+            private TeamFilter teamFilter;
             public void Awake()
             {
                 newGravity = Physics.gravity * gravityModifier;
             }
             public void Start()
             {
+                teamFilter = GetComponent<TeamFilter>();    
                 rigid = GetComponent<Rigidbody>();
                 if (rigid.useGravity)
                 {
                     Log.Error($"ProjectileBigTarBlob start on a with rigidbody.useGravity = true!");
                 }
+                stick = GetComponent<ProjectileStickOnImpact>();
             }
             public void FixedUpdate()
             {
@@ -304,10 +312,26 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 {
                     rigid.velocity += newGravity * Time.fixedDeltaTime;
                 }
+                if (stick != null && stick.stuck == true && !playedImpactSoundEffect)
+                {
+                    playedImpactSoundEffect = true;
+                    Util.PlaySound("Play_clayGrenadier_attack1_launch", gameObject);
+                    indicatorInstance = Instantiate(indicatorPrefab, gameObject.transform.position, Util.QuaternionSafeLookRotation(Vector3.up));
+                    TeamAreaIndicator component = indicatorInstance.GetComponent<TeamAreaIndicator>();
+                    component.teamFilter = teamFilter;
+                    float radius = TarZoneModule.minRadius.Value + chargePercentage * (TarZoneModule.maxRadius.Value - TarZoneModule.minRadius.Value);
+                    indicatorInstance.transform.localScale = Vector3.one * radius;
+                    EffectManager.SpawnEffect(explosionVFX, new EffectData { origin = gameObject.transform.position, rotation = Quaternion.identity, scale = 6f + 6f * chargePercentage }, true);
+                }
             }
             public void DestroySelf()
             {
                 Destroy(GetComponent<ProjectileController>().gameObject);
+            }
+            public void OnDisable()
+            {
+                Destroy(indicatorInstance);
+                indicatorInstance = null;
             }
         }
         public class FireBigBlob : BaseSkillState
@@ -542,7 +566,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             public float percentageHealthTaken = 0f;
             private static float maxPercentageHealthTaken = TarZoneModule.healthPercentForFullCharge.Value / 100f;
             public bool charging = false;
-            private Transform tarBallTransform;
+            public Transform tarBallTransform;
             private CharacterBody body;
             private GameObject tarBallInstance;
             private ProjectileImpactExplosion impact;
@@ -552,7 +576,6 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             private ProjectileDamage damageComponent;
             public float percentageCharge;
             private SphereCollider collider;
-            private static GameObject explosionVFX = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_ClayGrenadier.ClayGrenadierBarrelExplosion_prefab).WaitForCompletion();
             public void Start()
             {
                 body = GetComponent<CharacterBody>();
@@ -569,13 +592,24 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                     if (controller != null)
                     {
                         Vector3 origin = controller.transform.position;
+                        Util.PlaySound("Play_engi_M1_chargeStock", body.gameObject);
                         EffectManager.SpawnEffect(chargeEffect, new EffectData { origin = origin, rotation = Util.QuaternionSafeLookRotation(UnityEngine.Random.onUnitSphere), scale = 2 + damagePercentage * 4 }, true);
+
+                        if (percentageCharge < 1)
+                        {
+                            int totalFliers = Mathf.Min((int)(damagePercentage / 0.004f), 10);
+                            Log.Debug(totalFliers);
+                            for (int i = 0; i < totalFliers; i++)
+                            {
+                                GameObject trailGameObject = new GameObject();
+                                Vector3 randomOnUnitSphere = UnityEngine.Random.onUnitSphere * (8f + 8f * percentageCharge);
+                                trailGameObject.transform.position = tarBallTransform.position + randomOnUnitSphere;
+                                TarFlier tarFlier = trailGameObject.AddComponent<TarFlier>();
+                                tarFlier.associatedController = this;
+                            }
+                        }
                     }
                 }
-            }
-            public void ResetInstances()
-            {
-                percentageHealthTaken = 0;
             }
             public void StartChargingAndSpawnProjectile()
             {
@@ -595,6 +629,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                             force = 0f,
                             speedOverride = 0f,
                         };
+                        EffectManager.SpawnEffect(explosionVFX, new EffectData { origin = tarBallTransform.position, rotation = Quaternion.identity, scale = 6f }, true);
                         tarBallInstance = ProjectileManager.instance.FireProjectileImmediateServer(info);
                         controller = tarBallInstance.GetComponent<ProjectileController>();
                         impact = tarBallInstance.GetComponent<ProjectileImpactExplosion>();
@@ -608,7 +643,6 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                         stick.enabled = false;
                         bigTarBlob.enabled = false;
                         collider.enabled = false;
-
                     }
                 }
             }
@@ -689,6 +723,50 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                     impact = null;
                     bigTarBlob = null;
                     percentageCharge = 0f;
+                }
+            }
+        }
+        public class TarFlier : MonoBehaviour
+        {
+            public ClayGrenadierChargeController associatedController;
+            private TrailRenderer trailRenderer;
+            private float trailSpeed = 20f;
+            public void Start()
+            {
+                trailRenderer = gameObject.AddComponent<TrailRenderer>();
+                trailRenderer.material = tarMaterial;
+                trailRenderer.materials = [tarMaterial];
+                trailRenderer.startWidth = 0.8f;
+                trailRenderer.endWidth = 0.3f;
+                trailRenderer.time = 0.2f;
+                trailRenderer.emitting = true;
+                trailRenderer.enabled = true;
+                trailRenderer.startColor = Color.black;
+                trailRenderer.endColor = Color.black;
+            }
+            public void FixedUpdate()
+            {
+                if (trailRenderer != null && associatedController != null)
+                {
+                    Vector3 currentPosition = gameObject.transform.position;
+                    Vector3 targetPosition = associatedController.tarBallTransform.position;
+                    float distance = Vector3.Distance(currentPosition, targetPosition);
+                    if (distance < 1f)
+                    {
+                        Destroy(gameObject);
+                        return;
+                    }
+                    else
+                    {
+                        Vector3 direction = (targetPosition - currentPosition).normalized;
+                        Vector3 newPosition = currentPosition + (direction * Time.fixedDeltaTime * trailSpeed);
+                        gameObject.transform.position = newPosition;
+                    }
+                }
+                else
+                {
+                    Destroy(gameObject);
+                    return;
                 }
             }
         }
