@@ -67,6 +67,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             fuseTime = BindFloat("Deluge Fuse Time", 1f, "The time that the Tar Ball takes to explode after landing.", 0.2f, 2f, 0.1f, FormatType.Time);
             playerDetonateDamage = BindFloat("Player Detonation Damage", 800f, "The damage coefficient of the Tar Ball if it's detonated by a player (through killing the apothecary whilst it's charging - the tar ball cannot be killed once airborne).", 350f, 1600f, 5f, FormatType.Percentage);
             cooldown = BindFloat("Deluge Cooldown", 30f, "The cooldown of the Tar Deluge ability", 15f, 60f, 0.1f, FormatType.Time);
+            BindStats(bodyPrefab, [cscApothecary], new StatOverrides { baseArmor = 10f, baseMaxHealth = 1200f, directorCost = 175f });
         }
         public override void Initialise()
         {
@@ -81,9 +82,6 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             tarImpactEffect.GetComponent<EffectComponent>().applyScale = true;
             ContentAddition.AddEffect(tarImpactEffect);
 
-            BodyCatalog.availability.onAvailable += UpdateMaxHealth;
-            CharacterBody grenadier = DLC1Content.BodyPrefabs.ClayGrenadierBody;
-            cscApothecary.directorCreditCost = 180; //+30
             IL.RoR2.Projectile.ProjectileExplosion.FireChild += (il) =>
             {
                 ILCursor c1 = new ILCursor(il);
@@ -116,15 +114,6 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                     Log.Error($"ProjectileExplosion.FireChild ILCursor c1 failed to match!");
                 }
             };
-        }
-        private void UpdateMaxHealth()
-        {
-            CharacterBody grenadier = DLC1Content.BodyPrefabs.ClayGrenadierBody;
-            if (grenadier != null)
-            {
-                grenadier.baseMaxHealth = 1300f;
-                grenadier.levelMaxHealth = 390f;
-            }
         }
         private void ExplodeBlobOnDeath(DamageReport damageReport)
         {
@@ -598,7 +587,6 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                         if (percentageCharge < 1)
                         {
                             int totalFliers = Mathf.Min((int)(damagePercentage / 0.004f), 10);
-                            Log.Debug(totalFliers);
                             for (int i = 0; i < totalFliers; i++)
                             {
                                 GameObject trailGameObject = new GameObject();
@@ -703,6 +691,8 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 {
                     charging = false;
                     impact.enabled = true;
+                    impact.destroyOnEnemy = false;
+                    impact.detonateOnEnemy = false;
                     stick.enabled = true;
                     stick.ignoreWorld = false;
                     bigTarBlob.enabled = true;

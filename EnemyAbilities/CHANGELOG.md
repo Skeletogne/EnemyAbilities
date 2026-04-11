@@ -1,5 +1,23 @@
 # Changelog
 
+# 1.13.0
+- Gave Brass Contraptions a new special ability: Explosive Toll!
+- Larva caustic pod explosion range now correctly reads the right config option. Default explosion radius restored to 12m.
+- Added a sound cue to the start of Alloy Vultures' swoop attacks.
+- Polished up the README to make additional module changes more clear.
+- Added additional config options to modify the base stats and director cost of each enemy tweaked in the mod. 
+- Added SoundAPI dependency.
+
+# 1.12.1
+- Changed Gravekeeper Ghosts to be even more red to distinguish them from burning enemies.
+- Fixed the Angler Eye Beam Cooldown config option being locked at the lowest setting.
+- Solved a few NREs here and there.
+- Slightly reduced the distance that non-oiled players can be from an oil blob before a Solus Scorcher prioritises attacking the blob. 
+
+# 1.12.0
+- Gave Void Reavers a new ability: Summon Void Anglers!
+- Gave Solus Scorchers smarter AI!
+
 # 1.11.2
 - Added a config option for bison boulders for adjusting the spread angle.
 - Minor VFX update to Bison mini-boulders. (they start at a random rotation now, that's it)

@@ -27,6 +27,8 @@ namespace EnemyAbilities.Abilities.SolusProspector
         internal static ConfigEntry<float> baseVelocity;
         internal static ConfigEntry<float> cooldown;
 
+        private static CharacterSpawnCard csc = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_DLC3_WorkerUnit.cscWorkerUnit_asset).WaitForCompletion();
+
         public override void RegisterConfig()
         {
             base.RegisterConfig();
@@ -37,6 +39,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
             damageCoeff = BindFloat("Burrow Damage Coefficient", 300f, "The damage coefficient of the burrow attack", 100f, 500f, 5f, FormatType.Percentage);
             baseVelocity = BindFloat("Burrow Upwards Velocity Modifier", 250f, "The speed multiplier at which the Prospector is ejected from the ground", 100f, 500f, 10f, FormatType.Percentage);
             cooldown = BindFloat("Burrow Cooldown", 15f, "The cooldown of the burrow", 8f, 30f, 0.1f, FormatType.Time);
+            BindStats(bodyPrefab, [csc], new StatOverrides { directorCost = 16 });
         }
         public override void Initialise()
         {

@@ -27,6 +27,7 @@ namespace EnemyAbilities.Abilities.Bison
         public static GameObject miniRockProjectile = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Grandparent.GrandparentBoulder_prefab).WaitForCompletion().InstantiateClone("bisonMiniBoulder");
         public static GameObject miniRockGhost = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Grandparent.GrandparentBoulderGhost_prefab).WaitForCompletion().InstantiateClone("bisonMiniBoulderGhost");
         public static ModdedDamageType rockDamageType;
+        private static CharacterSpawnCard cscBison = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_Base_Bison.cscBison_asset).WaitForCompletion();
 
         internal static ConfigEntry<float> rockCount;
         internal static ConfigEntry<float> rockChildDamageCoeff;
@@ -49,6 +50,7 @@ namespace EnemyAbilities.Abilities.Bison
             rockCooldown = BindFloat("Rock Cooldown", 15f, "Cooldown before the ability can be activated again", 5f, 30f, 0.1f, PluginConfig.FormatType.Time);
             rockMaxHealth = BindFloat("Rock Health", 400f, "Max health of the rock at Level 1. Gains 30% of this value per level", 100f, 600f, 10f, PluginConfig.FormatType.None);
             rockSpreadAngle = BindFloat("Rock Spread Angle", 22f, "The total spread angle of rocks beyond 1 launched by this ability.", 10f, 50f, 1f, PluginConfig.FormatType.None);
+            BindStats(bodyPrefab, [cscBison]);
         }
         public override void Initialise()
         {

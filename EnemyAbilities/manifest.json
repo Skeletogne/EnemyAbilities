@@ -1,8 +1,15 @@
 {
     "name": "EnemyAbilities",
-    "description": "THE GREEN UPDATE",
-    "version_number": "1.11.2",
-    "dependencies": [ "RiskofThunder-R2API_RecalculateStats-1.6.5", "RiskofThunder-R2API_Prefab-1.1.1", "RiskofThunder-R2API_DamageType-1.1.7", "RiskofThunder-R2API_Language-1.1.0", "score-MiscFixes-1.5.7" ],
+    "description": "A difficulty mod that adds 17 new skills for enemies to use, amongst other tweaks!",
+    "version_number": "1.13.0",
+    "dependencies": [
+        "RiskofThunder-R2API_RecalculateStats-1.6.5",
+        "RiskofThunder-R2API_Prefab-1.1.1",
+        "RiskofThunder-R2API_DamageType-1.1.7",
+        "RiskofThunder-R2API_Language-1.1.0",
+        "score-MiscFixes-1.5.7",
+        "RiskofThunder-R2API_Sound-1.0.3"
+    ],
     "optional_dependencies": [ "rune580-Risk_Of_Options-2.8.6" ],
     "website_url": "https://github.com/Skeletogne/EnemyAbilities"
 }

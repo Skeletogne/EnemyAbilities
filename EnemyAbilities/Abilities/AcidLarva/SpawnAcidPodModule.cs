@@ -26,13 +26,14 @@ namespace EnemyAbilities.Abilities.AcidLarva
         private static GameObject acidProjectileGhostPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_BeetleQueen.BeetleQueenSpitGhost_prefab).WaitForCompletion().InstantiateClone("acidLarvaProjectileGhost");
         private static GameObject acidPodPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_SulfurPod.SulfurPodBody_prefab).WaitForCompletion().InstantiateClone("acidLarvaPod");
         private static EntityStateConfiguration larvaLeapESC = Addressables.LoadAssetAsync<EntityStateConfiguration>(RoR2_DLC1_AcidLarva.EntityStates_AcidLarva_LarvaLeap_asset).WaitForCompletion();
+        private static CharacterSpawnCard cscLarva = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_DLC1_AcidLarva.cscAcidLarva_asset).WaitForCompletion();
 
         internal static ConfigEntry<float> cooldown;
         internal static ConfigEntry<float> damage;
         internal static ConfigEntry<float> lifetime;
         internal static ConfigEntry<float> useRange;
         internal static ConfigEntry<float> poisonDuration;
-        internal static ConfigEntry<float> explosionRadius;
+        internal static ConfigEntry<float> podExplosionRadius;
         internal static ConfigEntry<float> travelTime;
 
         public override void RegisterConfig()
@@ -43,8 +44,9 @@ namespace EnemyAbilities.Abilities.AcidLarva
             lifetime = BindFloat("Caustic Pod Lifetime", 30f, "How long the pod lasts before despawning", 10f, 60f, 1f, FormatType.Time);
             useRange = BindFloat("Caustic Pod Use Range", 30f, "Max range to use the ability", 15f, 50f, 0.1f, FormatType.Distance);
             poisonDuration = BindFloat("Caustic Pod Poison Duration", 5f, "Duration of the poison effect", 0f, 10f, 0.1f, FormatType.Time);
-            explosionRadius = BindFloat("Caustic Pod Explosion Radius", 8f, "Radius of the pod explosion", 6f, 18f, 0.1f, FormatType.Distance);
+            podExplosionRadius = BindFloat("Caustic Pod Explosion Radius", 12f, "Radius of the pod explosion", 6f, 18f, 0.1f, FormatType.Distance);
             travelTime = BindFloat("Caustic Pod Travel Time", 1.5f, "Time for the projectile to reach its target", 0.5f, 3f, 0.1f, FormatType.Time);
+            BindStats(bodyPrefab, [cscLarva]);
         }
         public override void Initialise()
         {
@@ -213,7 +215,7 @@ namespace EnemyAbilities.Abilities.AcidLarva
 
             public static GameObject explosionEffectPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_SulfurPod.SulfurPodExplosion_prefab).WaitForCompletion();
 
-            public static float explosionRadius = useRange.Value;
+            public static float explosionRadius = podExplosionRadius.Value;
 
             public static float explosionDamageCoefficient = damage.Value / 100f;
 

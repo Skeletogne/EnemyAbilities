@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 using BepInEx.Configuration;
 using EntityStates;
@@ -77,6 +78,93 @@ namespace EnemyAbilities.Abilities
             public bool shouldSprint = false;
             public float aimVectorMaxSpeedOverride = -1f;
         }
+        public class StatOverrides
+        {
+            public float? baseMaxHealth;
+            public float? baseDamage;
+            public float? baseMoveSpeed;
+            public float? baseAcceleration;
+            public float? baseArmor;
+            public float? directorCost;
+        }
+
+        internal ConfigEntry<float> baseMaxHealthCfg;
+        internal ConfigEntry<float> baseDamageCfg;
+        internal ConfigEntry<float> baseMoveSpeedCfg;
+        internal ConfigEntry<float> baseAccelerationCfg;
+        internal ConfigEntry<float> baseArmorCfg;
+        internal ConfigEntry<float> costCfg;
+
+        protected GameObject cachedBodyPrefab;
+        protected List<CharacterSpawnCard> cachedSpawnCards;
+
+        protected void BindStats(GameObject prefab, List<CharacterSpawnCard> spawnCards = null, StatOverrides overrides = null)
+        {
+            cachedBodyPrefab = prefab;
+            cachedSpawnCards = spawnCards;
+            CharacterBody body = prefab.GetComponent<CharacterBody>();
+            if (body == null)
+            {
+                Log.Error($"BodyPrefab has no CharacterBody!");
+                return;
+            }
+            string bodyName = Language.GetString(body.baseNameToken);
+            overrides = overrides ?? new StatOverrides();
+            baseMaxHealthCfg = BindFloat("Base Max Health", overrides.baseMaxHealth ?? body.baseMaxHealth, $"Base Max Health of this enemy.\nValue without this mod is {body.baseMaxHealth}.{(overrides.baseMaxHealth.HasValue ? $"\n<style=cShrine>This mod rebalances this stat to {overrides.baseMaxHealth} by default.</style>" : "")}", body.baseMaxHealth / 5f, body.baseMaxHealth * 5f, 1f);
+            baseDamageCfg = BindFloat("Base Damage", overrides.baseDamage ?? body.baseDamage, $"Base Damage of this enemy.\nValue without this mod is {body.baseDamage}.{(overrides.baseDamage.HasValue ? $"\n<style=cShrine>This mod rebalances this stat to {overrides.baseDamage} by default.</style>" : "")}", body.baseDamage / 5f, body.baseDamage * 5f, 0.1f);
+            if (body.baseMoveSpeed > 0)
+            {
+                baseMoveSpeedCfg = BindFloat("Base Move Speed", overrides.baseMoveSpeed ?? body.baseMoveSpeed, $"Base Move Speed of this enemy.\nValue without this mod is {body.baseMoveSpeed}.{(overrides.baseMoveSpeed.HasValue ? $"\n<style=cShrine>This mod rebalances this stat to {overrides.baseMoveSpeed} by default.</style>" : "")}", body.baseMoveSpeed / 5f, body.baseMoveSpeed * 5f, 0.1f);
+            }
+            if (body.baseAcceleration > 0)
+            {
+                baseAccelerationCfg = BindFloat("Base Acceleration", overrides.baseAcceleration ?? body.baseAcceleration, $"Base Acceleration of this enemy.\nValue without this mod is {body.baseAcceleration}.{(overrides.baseAcceleration.HasValue ? $"\n<style=cShrine>This mod rebalances this stat to {overrides.baseAcceleration} by default.</style>" : "")}", body.baseAcceleration / 5f, body.baseAcceleration * 5f, 0.1f);
+            }
+            baseArmorCfg = BindFloat("Base Armor", overrides.baseArmor ?? body.baseArmor, $"Base Armor of this enemy.\nValue without this mod is {body.baseArmor}.{(overrides.baseArmor.HasValue ? $"\n<style=cShrine>This mod rebalances this stat to {overrides.baseArmor} by default.</style>" : "")}", 0, Mathf.Max(100, body.baseArmor), 1f);
+            if (spawnCards != null)
+            {
+                costCfg = BindFloat("Director Cost", overrides.directorCost ?? spawnCards[0].directorCreditCost, $"The amount of credits required for the director to spawn this enemy.\nValue without this mod is {spawnCards[0].directorCreditCost}.{(overrides.directorCost.HasValue ? $"\n<style=cShrine>This mod rebalances this stat to {overrides.directorCost} by default.</style>" : "")}", spawnCards[0].directorCreditCost / 5f, spawnCards[0].directorCreditCost * 5f, 1f);
+            }
+        }
+        protected void ApplyStats()
+        {
+            if (cachedBodyPrefab == null)
+            {
+                Log.Error($"CachedBodyPrefab is null! BindStats has to have been run already before ApplyStats is called!!!");
+                return;
+            }
+            CharacterBody body = cachedBodyPrefab.GetComponent<CharacterBody>();
+            if (body == null)
+            {
+                return;
+            }
+            string bodyName = Language.GetString(body.baseNameToken);
+            body.baseMaxHealth = baseMaxHealthCfg.Value;
+            body.levelMaxHealth = baseMaxHealthCfg.Value * 0.3f;
+            body.baseDamage = baseDamageCfg.Value;
+            body.levelDamage = baseDamageCfg.Value * 0.2f;
+            if (baseMoveSpeedCfg != null)
+            {
+                body.baseMoveSpeed = baseMoveSpeedCfg.Value;
+            }
+            if (baseAccelerationCfg != null)
+            {
+                body.baseAcceleration = baseAccelerationCfg.Value;
+            }
+            if (baseArmorCfg != null)
+            {
+                body.baseArmor = baseArmorCfg.Value;
+            }
+            if (cachedSpawnCards != null && costCfg != null)
+            {
+                for (int i = 0; i < cachedSpawnCards.Count; i++)
+                {
+                    CharacterSpawnCard card = cachedSpawnCards[i];
+                    card.directorCreditCost = (int)costCfg.Value;
+
+                }
+            }
+        }
         public virtual void Awake()
         {
             RegisterConfig();
@@ -107,6 +195,7 @@ namespace EnemyAbilities.Abilities
         }
         public virtual void Initialise()
         {
+            ApplyStats();
             //stuff also overwrites this
         }
         protected T CreateSkillDef<T>(SkillDefData data) where T : SkillDef

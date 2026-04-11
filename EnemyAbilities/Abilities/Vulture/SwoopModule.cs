@@ -19,6 +19,7 @@ namespace EnemyAbilities.Abilities.Vulture
     {
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Vulture.VultureBody_prefab).WaitForCompletion();
         private static GameObject masterPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Vulture.VultureMaster_prefab).WaitForCompletion();
+        private static CharacterSpawnCard csc = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_Base_Vulture.cscVulture_asset).WaitForCompletion();
         internal static ConfigEntry<float> damageCoeff;
         internal static ConfigEntry<float> hitboxScale;
         internal static ConfigEntry<bool> inflictsBleed;
@@ -34,6 +35,7 @@ namespace EnemyAbilities.Abilities.Vulture
             selfStunDuration = BindFloat("Swoop Stun Duration on Impact", 2f, "How long the Alloy Vulture stuns itself for upon hitting terrain at high speed.", 0f, 4f, 0.1f, FormatType.Time);
             inflictsBleed = BindBool("Swoop Inflicts Bleed", true, "Allows Alloy Vultures to inflict 1 stack of bleed for 3 seconds when swoop hits.");
             cooldown = BindFloat("Swoop Cooldown", 12f, "The cooldown of the swoop ability", 8f, 30f, 0.1f, FormatType.Time);
+            BindStats(bodyPrefab, [csc]);
         }
         public override void Initialise()
         {
@@ -167,6 +169,7 @@ namespace EnemyAbilities.Abilities.Vulture
             Vector3 movementDirection = characterBody.corePosition - targetLocation;
             movementDirection.y = 0f;
             movementDirection.Normalize();
+            Util.PlaySound("Play_vulture_attack2_warning", this.gameObject);
             if (characterMotor != null)
             {
                 EffectManager.SpawnEffect(jumpEffect, new EffectData { scale = 2f, origin = characterBody.footPosition, rotation = Util.QuaternionSafeLookRotation(Vector3.down) }, true);

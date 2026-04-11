@@ -24,6 +24,10 @@ namespace EnemyAbilities.Abilities.Titan
         private static GameObject pulseEffectPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Titan.ExplosionGolemClap_prefab).WaitForCompletion().InstantiateClone("pulseEffect");
         private static EntityStateConfiguration rechargeRocksESC = Addressables.LoadAssetAsync<EntityStateConfiguration>(RoR2_Base_Titan.EntityStates_TitanMonster_RechargeRocks_asset).WaitForCompletion();
         private static GameObject titanRockController = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Titan.TitanRockController_prefab).WaitForCompletion();
+        private static CharacterSpawnCard csc1 = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_Base_Titan.cscTitanBlackBeach_asset).WaitForCompletion();
+        private static CharacterSpawnCard csc2 = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_Base_Titan.cscTitanDampCave_asset).WaitForCompletion();
+        private static CharacterSpawnCard csc3 = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_Base_Titan.cscTitanGolemPlains_asset).WaitForCompletion();
+        private static CharacterSpawnCard csc4 = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_Base_Titan.cscTitanGooLake_asset).WaitForCompletion();
 
         private static ConfigEntry<float> stompCooldown;
         private static ConfigEntry<float> stompJumpVelocity;
@@ -47,6 +51,7 @@ namespace EnemyAbilities.Abilities.Titan
             stompKnockupForce = BindFloat("Shockwave Knockup Force", 4000f, "The force with which the shockwave knocks up both players and monsters.", 1000f, 6000f, 100f, PluginConfig.FormatType.None);
             stompDamageCoeff = BindFloat("Shockwave Damage Coefficient", 50f, "The damage coefficient of the shockwave. Stone Titans have very high base damage (40), so this is generally lower than most other skills.", 30f, 200f, 5f, PluginConfig.FormatType.Percentage);
             stompEffectsMult = BindFloat("Stomp Effects Mutliplier", 1f, "Affects the number of particles that appear when the ring expands outwards. Higher values may cause lag when multiple stone titans are present.", 0f, 1.5f, 0.1f, PluginConfig.FormatType.Multiplier);
+            BindStats(bodyPrefab, [csc1, csc2, csc3, csc4]);
         }
         public override void Initialise()
         {

@@ -58,6 +58,7 @@ namespace EnemyAbilities.Abilities.GreaterWisp
             leavesDotZone = BindBool("Inferno Wheel DoT Zone", true, "Whether fireballs leave behind a damage zone on impact");
             projectileSpeed = BindFloat("Inferno Wheel Projectile Speed", 60f, "Speed of fireballs when launched", 40f, 100f, 5f, FormatType.Speed);
             onKillChance = BindFloat("Inferno Wheel On-Kill Chance", 100f, "Chance for a fireball to trigger on-kill effects", 0f, 100f, 5f, FormatType.Percentage);
+            BindStats(bodyPrefab, [cscGreaterWisp], new StatOverrides { baseMaxHealth = 900, directorCost = 175 });
         }
         public override void Initialise()
         {
@@ -66,10 +67,6 @@ namespace EnemyAbilities.Abilities.GreaterWisp
             CreateSkill();
             CreateProjectilePrefab();
             ModifyProjectileGhost();
-            CharacterBody greaterWispBody = bodyPrefab.GetComponent<CharacterBody>();
-            greaterWispBody.baseMaxHealth += 100f;
-            greaterWispBody.levelMaxHealth += 30f;
-            cscGreaterWisp.directorCreditCost = 175;
             Utils.AddHealthOverride((originalMaxHealth, body) =>
             {
                 if (body == null || body.master != null)
@@ -179,7 +176,6 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                     MeshRenderer renderer = t.gameObject.GetComponent<MeshRenderer>();
                     if (renderer != null)
                     {
-                        Log.Debug($"Meatball Renderer is not null!");
                         Material material = new Material(renderer.material);
                         material.SetTexture("_RemapTex", greaterWispFireTexture);
                         material.SetColor("_TintColor", new Color(0.4f, 1f, 0.1f, 1f));
@@ -191,7 +187,6 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                     Light meatballLight = t.gameObject.GetComponent<Light>();
                     if (meatballLight != null)
                     {
-                        Log.Debug($"Meatball Light is not null!");
                         meatballLight.color = new Color(r: 0.400f, g: 1.000f, b: 0.100f, a: 1.000f);
                         meatballLight.intensity = 3.5f;
                         meatballLight.range = 7f;
@@ -202,7 +197,6 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                     TrailRenderer trail = t.gameObject.GetComponent<TrailRenderer>();
                     if (trail != null)
                     {
-                        Log.Debug($"Meatball trail is not null!");
                         Material material = new Material(trail.material);
                         material.SetTexture("_RemapTex", greaterWispFireTexture);
                         material.SetColor("_TintColor", new Color(0.4f, 1f, 0.1f, 1f));
@@ -641,18 +635,21 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                 {
                     return;
                 }
-                if ((projectileController == null || projectileController.owner == null) && launched == false)
+                if (projectileController == null || (projectileController.owner == null && launched == false))
                 {
                     IgnoreProjectileDamageAndChildren();
                     Detonate();
                     return;
                 }
-                HealthComponent ownerHealthComponent = projectileController.owner.GetComponent<HealthComponent>();
-                if (ownerHealthComponent == null || ownerHealthComponent.alive == false && launched == false)
+                if (projectileController.owner != null && projectileController.owner != null)
                 {
-                    IgnoreProjectileDamageAndChildren();
-                    Detonate();
-                    return;
+                    HealthComponent ownerHealthComponent = projectileController.owner.GetComponent<HealthComponent>();
+                    if (ownerHealthComponent == null || ownerHealthComponent.alive == false && launched == false)
+                    {
+                        IgnoreProjectileDamageAndChildren();
+                        Detonate();
+                        return;
+                    }
                 }
                 if (explodeOnLifeTimeExpiration && alive && stopwatch >= lifetime)
                 {
@@ -664,19 +661,19 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                 {
                     stopwatchAfterImpact += Time.fixedDeltaTime;
                 }
-                bool num = stopwatch >= lifetime;
-                bool flag = timerAfterImpact && stopwatchAfterImpact > lifetimeAfterImpact;
-                bool flag2 = (bool)projectileHealthComponent && !projectileHealthComponent.alive;
-                bool flag3 = false;
+                bool lifetimeExpired = stopwatch >= lifetime;
+                bool lifetimeAfterImpactExpired = timerAfterImpact && stopwatchAfterImpact > lifetimeAfterImpact;
+                bool projectileAlive = (bool)projectileHealthComponent && !projectileHealthComponent.alive;
+                bool flag1 = false;
                 if (destroyOnDistance && (base.transform.position - startPos).sqrMagnitude >= maxDistanceSqr)
                 {
-                    flag3 = true;
+                    flag1 = true;
                 }
-                if (num || flag || flag2 || flag3)
+                if (lifetimeExpired || lifetimeAfterImpactExpired || projectileAlive || flag1)
                 {
                     alive = false;
                 }
-                if (flag2)
+                if (projectileAlive)
                 {
                     IgnoreProjectileDamageAndChildren();
                 }
@@ -687,12 +684,12 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                 }
                 if (alive && !hasPlayedLifetimeExpiredSound)
                 {
-                    bool flag4 = stopwatch > lifetime - offsetForLifetimeExpiredSound;
+                    bool flag2 = stopwatch > lifetime - offsetForLifetimeExpiredSound;
                     if (timerAfterImpact)
                     {
-                        flag4 |= stopwatchAfterImpact > lifetimeAfterImpact - offsetForLifetimeExpiredSound;
+                        flag2 |= stopwatchAfterImpact > lifetimeAfterImpact - offsetForLifetimeExpiredSound;
                     }
-                    if (flag4)
+                    if (flag2)
                     {
                         hasPlayedLifetimeExpiredSound = true;
                         if (NetworkServer.active && (bool)lifetimeExpiredSound)

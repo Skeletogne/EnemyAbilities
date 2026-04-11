@@ -21,6 +21,7 @@ namespace EnemyAbilities.Abilities.LunarGolem
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_LunarGolem.LunarGolemBody_prefab).WaitForCompletion();
         public static GameObject segmentPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common.FireTrailSegment_prefab).WaitForCompletion().InstantiateClone("lunarGolemFireTrail");
         private static GameObject chargeEffectPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_LunarGolem.ChargeLunarGolemTwinShot_prefab).WaitForCompletion();
+        private static CharacterSpawnCard cscLunarGolem = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_Base_LunarGolem.cscLunarGolem_asset).WaitForCompletion();
 
         internal static ConfigEntry<float> cooldown;
         internal static ConfigEntry<float> charges;
@@ -44,6 +45,7 @@ namespace EnemyAbilities.Abilities.LunarGolem
             explosionRadius = BindFloat("Laser Explosion Radius", 8f, "Radius of the trail explosion", 4f, 12f, 0.1f, FormatType.Distance);
             dotDamageCoeff = BindFloat("Laser DoT Damage Coefficient", 10f, "Damage coefficient of the fire trail DoT, as a percentage of the explosion's total damage.", 1f, 50f, 1f, FormatType.Percentage);
             explosionDamageCoeff = BindFloat("Laser Explosion Damage Coefficient", 150f, "Damage coefficient of each trail explosion", 100f, 300f, 5f, FormatType.Percentage);
+            BindStats(bodyPrefab, [cscLunarGolem]);
         }
         public override void Initialise()
         {

@@ -32,6 +32,7 @@ namespace EnemyAbilities.Abilities.IronHauler
         public static GameObject gravityWellProjectile = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC3_IronHauler.IronHaulerGravityWellProjectile_prefab).WaitForCompletion();
         private static Material laserMaterial = Addressables.LoadAssetAsync<Material>(RoR2_DLC1_MajorAndMinorConstruct.matMajorConstructBeam_mat).WaitForCompletion();
         public static GameObject sphereVFX;
+        private static CharacterSpawnCard cscHauler = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_DLC3_IronHauler.cscIronHauler_asset).WaitForCompletion();
 
         internal static ConfigEntry<float> maxRange;
         internal static ConfigEntry<float> timeToTarget;
@@ -53,6 +54,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             canFlingElites = BindBool("Can Fling Elites", true, "Allows Solus Transporters to pick up and fling elite enemies");
             canFlingBosses = BindBool("Can Fling Bosses", false, "Allows Solus Transporters to pick up and fling bosses. UNTESTED - ENABLE AT YOUR OWN PERIL!");
             cooldown = BindFloat("Tractor Beam Cooldown", 12f, "The Cooldown for the Tractor Beam (which starts after an enemy is flung)", 5f, 30f, 0.1f, PluginConfig.FormatType.Time);
+            BindStats(bodyPrefab, [cscHauler], new StatOverrides { baseMoveSpeed = 14f, baseAcceleration = 20f, directorCost = 150 });
         }
         public override void Initialise()
         {
@@ -60,7 +62,6 @@ namespace EnemyAbilities.Abilities.IronHauler
             bodyPrefab.AddComponent<IronHaulerDriverController>();
             CreateSkills();
             CreateBuffDef();
-            BodyCatalog.availability.CallWhenAvailable(ModifyTransporter);
             On.RoR2.EntityStateMachine.SetState += DropCargoOnStun;
             RecalculateStatsAPI.GetStatCoefficients += AddArmor;
             SetupTetherPrefab();
@@ -114,13 +115,6 @@ namespace EnemyAbilities.Abilities.IronHauler
                     }
                 }
             }
-        }
-        private void ModifyTransporter()
-        {
-            BodyIndex bodyIndex = BodyCatalog.FindBodyIndexCaseInsensitive("IronHaulerBody");
-            CharacterBody body = BodyCatalog.GetBodyPrefabBodyComponent(bodyIndex);
-            body.baseMoveSpeed *= 1.5f;
-            body.baseAcceleration = body.baseMoveSpeed * 6f;
         }
         public void CreateSkills()
         {

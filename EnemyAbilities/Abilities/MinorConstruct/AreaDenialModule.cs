@@ -18,6 +18,7 @@ namespace EnemyAbilities.Abilities.MinorConstruct
         private static Material laserMaterial = Addressables.LoadAssetAsync<Material>(RoR2_DLC1_MajorAndMinorConstruct.matMajorConstructBeam_mat).WaitForCompletion();
         public static GameObject tetherPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_moon2.BloodSiphonTetherVFX_prefab).WaitForCompletion().InstantiateClone("areaDenialTetherVFX");
         private static GameObject laserPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Golem.LaserGolem_prefab).WaitForCompletion().InstantiateClone("areaDenialWarningLaser");
+        private static CharacterSpawnCard cscMinorConstruct = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_DLC1_MajorAndMinorConstruct.cscMinorConstruct_asset).WaitForCompletion();
 
         private static ConfigEntry<float> tripwireMaxLength;
         private static ConfigEntry<float> maxTripwires;
@@ -39,6 +40,7 @@ namespace EnemyAbilities.Abilities.MinorConstruct
             tripwireDamageCoefficient = BindFloat("Tripwire Damage Coefficient", 250f, "The damage coefficient of the tripwire.", 100f, 500f, 5f, PluginConfig.FormatType.Percentage);
             tripwireRootDuration = BindFloat("Tripwire Root Duration", 1f, "The duration of the root upon triggering a tripwire.", 0f, 5f, 0.1f, PluginConfig.FormatType.Time);
             tripwireSlowDuration = BindFloat("Tripwire Slow Duration", 2f, "The duration of the slow upon triggering a tripwire.", 0f, 5f, 0.1f, PluginConfig.FormatType.Time);
+            BindStats(bodyPrefab, [cscMinorConstruct]);
         }
         public override void Initialise()
         {

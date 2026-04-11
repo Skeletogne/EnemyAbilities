@@ -22,6 +22,7 @@ namespace EnemyAbilities.Abilities.ExtractorUnit
         private static GameObject masterPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC3_ExtractorUnit.ExtractorUnitMaster_prefab).WaitForCompletion();
         private static GameObject projectilePrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Lemurian.Fireball_prefab).WaitForCompletion().InstantiateClone("extractorHook");
         private static GameObject hookTetherPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_moon2.BloodSiphonTetherVFX_prefab).WaitForCompletion().InstantiateClone("extractorHookTetherPrefab");
+        private static CharacterSpawnCard cscExtractor = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_DLC3_ExtractorUnit.cscExtractorUnit_asset).WaitForCompletion();
 
         private static BuffDef extractorBuff;
 
@@ -53,6 +54,7 @@ namespace EnemyAbilities.Abilities.ExtractorUnit
             pullSpeed = BindFloat("Tether Pull Travel Speed", 65f, "The speed at with the Extractor is pulled towards its tether upon a hit. Higher values may start flinging the Extractor!", 40f, 100f, 1f, PluginConfig.FormatType.Speed);
             applySlow = BindBool("Tether Hit Apply Slow", true, "If enabled, Extractors will apply a slow upon landing a successful tether.");
             prioritiseInventories = BindBool("Prioritise Inventories", true, "If enabled, Extractors will prioritise attacking enemies that have items that are not on their blacklist.");
+            BindStats(bodyPrefab, [cscExtractor], new StatOverrides { baseMoveSpeed = 18f, baseAcceleration = 60f, directorCost = 30f });
         }
         public void CreateSkill()
         {
@@ -81,7 +83,9 @@ namespace EnemyAbilities.Abilities.ExtractorUnit
                 targetType = prioritiseInventories.Value == true ? AISkillDriver.TargetType.Custom : AISkillDriver.TargetType.CurrentEnemy,
                 movementType = AISkillDriver.MovementType.ChaseMoveTarget,
                 aimType = AISkillDriver.AimType.AtMoveTarget,
-                desiredIndex = 3
+                desiredIndex = 3,
+                driverUpdateTimerOverride = 2f,
+                moveInputScale = 0.5f
             };
             CreateAISkillDriver(driverData);
 
@@ -96,9 +100,6 @@ namespace EnemyAbilities.Abilities.ExtractorUnit
                     }
                 }
             }
-            CharacterBody characterBody = bodyPrefab.GetComponent<CharacterBody>();
-            characterBody.baseMoveSpeed = 15f;
-            characterBody.baseAcceleration = 60f;
         }
         public override void Initialise()
         {

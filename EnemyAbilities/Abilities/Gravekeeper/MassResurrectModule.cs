@@ -34,8 +34,10 @@ namespace EnemyAbilities.Abilities.Gravekeeper
         public static Material chainMaterial = Addressables.LoadAssetAsync<Material>(RoR2_Base_Gravekeeper.matGravekeeperHookChain_mat).WaitForCompletion();
         public static GameObject tetherPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_moon2.BloodSiphonTetherVFX_prefab).WaitForCompletion().InstantiateClone("grovetenderChainTetherPrefab");
         public static GameObject muzzleFlashWinch = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Gravekeeper.MuzzleflashWinch_prefab).WaitForCompletion();
+        private static CharacterSpawnCard cscGravekeeper = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_Base_Gravekeeper.cscGravekeeper_asset).WaitForCompletion();
 
-        private static Material defaultGhostMaterial = Addressables.LoadAssetAsync<Material>(RoR2_Base_Common.matOnFire_mat).WaitForCompletion();
+        private static Material defaultGhostMaterial = Addressables.LoadAssetAsync<Material>(RoR2_Base_Common_VFX.matGhostEffect_mat).WaitForCompletion();
+        private static Texture2D gravekeeperGhostColourRamp = Addressables.LoadAssetAsync<Texture2D>(RoR2_DLC3.texRampLightningRed_png).WaitForCompletion();
         private static Material ghostMaterialClone;
 
         public static ItemDef GravekeeperGhostItem;
@@ -65,6 +67,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             maxGravestones = BindFloat("Resurrect Max Gravestones", 8f, "The maximum amount of gravestones a Grovetender can have active at once. Enemies that die beyond this limit will not create gravestones.", 2f, 20f, 1f);
             cooldown = BindFloat("Resurrect Cooldown", 60f, "The cooldown of Mass Resurrect", 30f, 120f, 0.1f, FormatType.Time);
             armorPerGhost = BindFloat("Resurrect Armor Per Ghost", 30f, "The amount of armour that the Grovetender gains per active ghost.", 5f, 100f, 1f);
+            BindStats(bodyPrefab, [cscGravekeeper]);
         }
         public override void Initialise()
         {
@@ -78,6 +81,9 @@ namespace EnemyAbilities.Abilities.Gravekeeper
             bodyPrefab.AddComponent<GravekeeperResurrectController>();
             R2API.RecalculateStatsAPI.GetStatCoefficients += GrantArmorStats;
             ghostMaterialClone = new Material(defaultGhostMaterial);
+            ghostMaterialClone.SetTexture("_RemapTex", gravekeeperGhostColourRamp);
+            ghostMaterialClone.SetColor("_TintColor", new Color(1f, 0f, 0f, 1f));
+
             IL.RoR2.CharacterModel.UpdateRendererMaterials += (il) =>
             {
                 ILCursor c1 = new ILCursor(il);

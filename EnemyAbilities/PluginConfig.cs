@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using BepInEx.Configuration;
 using EnemyAbilities.Abilities;
+using RoR2;
 using UnityEngine;
+using Path = System.IO.Path;
 
 namespace EnemyAbilities
 {
@@ -19,12 +22,10 @@ namespace EnemyAbilities
             Speed = 4,
             Multiplier = 5
         }
-
         public static void Init(ConfigFile cfg)
         {
             if (EnemyAbilities.RooInstalled)
                 InitRoO();
-
             Assembly assembly = Assembly.GetExecutingAssembly();
             Type[] types = assembly.GetTypes().Where(type => type.IsClass && !type.IsAbstract && type.IsSubclassOf(typeof(BaseModule))).ToArray();
             foreach (Type type in types)

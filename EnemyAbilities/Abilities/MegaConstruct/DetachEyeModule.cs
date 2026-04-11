@@ -37,6 +37,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
         public static GameObject transferDamageImpactEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Common_VFX.OmniImpactVFXLarge_prefab).WaitForCompletion().InstantiateClone("scalableImpactEffect");
         private static GameObject megaConstructModel = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_MajorAndMinorConstruct.mdlMegaConstruct_fbx).WaitForCompletion();
         public static GameObject pulseEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_MajorAndMinorConstruct.MajorConstructMuzzleflashSpawnMinorConstruct_prefab).WaitForCompletion().InstantiateClone("megaConstructBeaconEffect");
+        private static CharacterSpawnCard cscMegaConstruct = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_DLC1_MajorAndMinorConstruct.cscMegaConstruct_asset).WaitForCompletion();
 
         internal static ConfigEntry<float> damageCoeff;
         internal static ConfigEntry<float> explosionRadius;
@@ -54,6 +55,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
             windupDuration = BindFloat("Core Windup Duration", 0.75f, "The amount of time the Xi Construct will spin up for before firing it's core.", 0.5f, 2f, 0.01f, FormatType.Time);
             cooldown = BindFloat("Core Cooldown", 15f, "The cooldown of the core launch", 10f, 30f, 0.1f, FormatType.Time);
             disableMainBodyHurtbox = BindBool("Core Disable Main Body Hurtbox", false, "If enabled, disables the Xi Construct's hurtbox whilst it's Core is ejected.");
+            BindStats(bodyPrefab, [cscMegaConstruct]);
         }
         public override void Initialise()
         {
@@ -692,10 +694,13 @@ namespace EnemyAbilities.Abilities.XiConstruct
         }
         public void Start()
         {
-            CharacterMaster master = body.master;   
-            if (master != null)
+            if (body != null)
             {
-                baseAI = master.gameObject.GetComponent<BaseAI>();
+                CharacterMaster master = body.master;
+                if (master != null)
+                {
+                    baseAI = master.gameObject.GetComponent<BaseAI>();
+                }
             }
         }
         public void OnProjectileSetup(GameObject projectile)
@@ -708,7 +713,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
             if (targetCheckTimer < 0)
             {
                 targetCheckTimer += targetCheckInterval;
-                if (body == null || body.inputBank == null || body.healthComponent == null || !body.healthComponent.alive)
+                if (body == null || body.inputBank == null || body.healthComponent == null || !body.healthComponent.alive || body.teamComponent == null)
                 {
                     return;
                 }
@@ -727,11 +732,14 @@ namespace EnemyAbilities.Abilities.XiConstruct
                 TeamMask teamMask = TeamMask.GetEnemyTeams(body.teamComponent.teamIndex);
                 search.teamMaskFilter = teamMask;
                 search.RefreshCandidates();
-                IEnumerable<HurtBox> source = search.GetResults().Where(hurtBox => hurtBox.healthComponent != null && hurtBox.healthComponent.body != null && hurtBox.healthComponent.body.isPlayerControlled);
+                IEnumerable<HurtBox> source = search.GetResults().Where(hurtBox => hurtBox != null && hurtBox.healthComponent != null && hurtBox.healthComponent.body != null && hurtBox.healthComponent.body.isPlayerControlled);
                 if (source.Any())
                 {
-                    baseAI.customTarget.gameObject = source.FirstOrDefault()?.healthComponent.body.gameObject;
-                    validToUseSkill = true;
+                    if (baseAI.customTarget != null)
+                    {
+                        baseAI.customTarget.gameObject = source.FirstOrDefault()?.healthComponent.body.gameObject;
+                        validToUseSkill = true;
+                    }
                 }
                 else
                 {

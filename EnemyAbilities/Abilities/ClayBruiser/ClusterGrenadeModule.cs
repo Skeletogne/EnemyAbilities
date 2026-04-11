@@ -24,6 +24,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
         private static GameObject explosionPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_ClayGrenadier.ClayGrenadierBarrelExplosion_prefab).WaitForCompletion();
         private static EntityStateConfiguration escMinigunSpinDown = Addressables.LoadAssetAsync<EntityStateConfiguration>(RoR2_Base_ClayBruiser.EntityStates_ClayBruiser_Weapon_MinigunSpinDown_asset).WaitForCompletion();
         private static EntityStateConfiguration escSonicBoom = Addressables.LoadAssetAsync<EntityStateConfiguration>(RoR2_Base_ClayBruiser.EntityStates_ClayBruiser_Weapon_FireSonicBoom_asset).WaitForCompletion();
+        private static CharacterSpawnCard cscClayBruiser = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_Base_ClayBruiser.cscClayBruiser_asset).WaitForCompletion();
 
         internal static ConfigEntry<float> grenadeCount;
         internal static ConfigEntry<float> grenadeDamageCoeff;
@@ -37,6 +38,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
             grenadeCooldown = BindFloat("Grenade Cooldown", 10f, "Cooldown before the ability can activated again.", 5f, 30f, 0.1f, PluginConfig.FormatType.Time);
             grenadeDamageCoeff = BindFloat("Grenade Damage Coefficient", 100f, "Percentage multiplier to the Templar's Damage to get explosion damage. Uses falloff model sweet spot", 50f, 500f, 5f, PluginConfig.FormatType.Percentage);
             grenadeExplosionRadius = BindFloat("Grenade Explosion Radius", 6f, "Grenade Explosion radius in metres", 1f, 10f, 1f, PluginConfig.FormatType.Distance);
+            BindStats(bodyPrefab, [cscClayBruiser]);
         }
         public override void Initialise()
         {
@@ -115,7 +117,6 @@ namespace EnemyAbilities.Abilities.ClayBruiser
             };
             CreateAISkillDriver(driverData);
         }
-
     }
     public class ClusterGrenadeSkillDef : SkillDef
     {

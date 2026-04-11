@@ -17,6 +17,8 @@ namespace EnemyAbilities.Abilities.FlyingVermin
     {
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_FlyingVermin.FlyingVerminBody_prefab).WaitForCompletion();
         private static GameObject masterPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_FlyingVermin.FlyingVerminMaster_prefab).WaitForCompletion();
+        private static CharacterSpawnCard cscFlyingVermin = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_DLC1_FlyingVermin.cscFlyingVermin_asset).WaitForCompletion();
+        private static CharacterSpawnCard cscFlyingVerminSnowy = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_DLC1_FlyingVermin.cscFlyingVerminSnowy_asset).WaitForCompletion();
 
         internal static ConfigEntry<float> warningDuration;
         internal static ConfigEntry<float> recoveryDuration;
@@ -34,6 +36,7 @@ namespace EnemyAbilities.Abilities.FlyingVermin
             damageCoeff = BindFloat("Damage Coefficient", 250f, "The damage multiplier to the Blind Pest's damage to get explosion damage. Uses falloff model sweet spot", 100f, 500f, 5f, PluginConfig.FormatType.Percentage);
             radius = BindFloat("Radius", 6f, "The explosion radius of the poison blast", 4f, 12f, 1f, PluginConfig.FormatType.Distance);
             cooldown = BindFloat("Cooldown", 8f, "The cooldown of the ability", 4f, 20f, 0.1f, PluginConfig.FormatType.Time);
+            BindStats(bodyPrefab, [cscFlyingVermin, cscFlyingVerminSnowy]);
         }
         public override void Initialise()
         {
