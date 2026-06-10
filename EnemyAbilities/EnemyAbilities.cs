@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Configuration;
+using RoR2;
 using RoR2BepInExPack.GameAssetPaths.Version_1_39_0;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -17,6 +19,7 @@ using UnityEngine.AddressableAssets;
 //MAKE SURE THE DLL IS IN THE PLUGINS FOLDER WHEN MAKING THE MOD BUILD
 //Make sure you include any asset bundles in the mod build!
 //Make sure you include any sound banks as well!
+//remove debug text
 
 namespace EnemyAbilities
 {
@@ -29,15 +32,15 @@ namespace EnemyAbilities
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Skeletogne";
         public const string PluginName = "EnemyAbilities";
-        public const string PluginVersion = "1.13.0";
+        public const string PluginVersion = "1.16.0";
 
         internal static bool RooInstalled => Chainloader.PluginInfos.ContainsKey("com.rune580.riskofoptions");
+        internal static bool AVRInstalled = Chainloader.PluginInfos.ContainsKey("com.Nuxlar.AugmentedVoidReaver");
         public static EnemyAbilities Instance { get; private set; }
         internal string DirectoryName => System.IO.Path.GetDirectoryName(Info.Location);
         public Dictionary<Type, ConfigEntry<bool>> configEntries = new Dictionary<Type,ConfigEntry<bool>>();
 
         public AssetBundle assetBundle;
-
         public class ModuleInfoAttribute : Attribute
         {
             public string ModuleName { get; }
@@ -55,14 +58,11 @@ namespace EnemyAbilities
         public void Awake()
         {
             assetBundle = AssetBundle.LoadFromFile(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Info.Location), "anglereye"));
-
             Shader realShader = Addressables.LoadAssetAsync<Shader>(RoR2_Base_Shaders.HGStandard_shader).WaitForCompletion();
-
             foreach (Material mat in assetBundle.LoadAllAssets<Material>())
             {
                 mat.shader = realShader;
             }
-
             Instance = this;
             Log.Init(Logger);
             Utils.Init();

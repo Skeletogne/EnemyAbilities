@@ -133,7 +133,7 @@ namespace EnemyAbilities.Abilities.Titan
                 combatSkill = true
             };
             SkillDef shockwave = CreateSkillDef<SkillDef>(skillDefData);
-            CreateGenericSkill(bodyPrefab, skillDefData.skillName, "TitanPrimaryFamily", shockwave, RoR2.SkillSlot.Primary);
+            CreateGenericSkill(bodyPrefab, shockwave, "TitanPrimaryFamily", RoR2.SkillSlot.Primary);
             CreateEntityStateMachine(bodyPrefab, "Stomp");
             AISkillDriverData driverData = new AISkillDriverData
             {

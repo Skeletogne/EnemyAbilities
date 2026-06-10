@@ -58,7 +58,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
                 combatSkill = true
             };
             SkillDef drillBurrow = CreateSkillDef<SkillDef>(skillData);
-            CreateGenericSkill(bodyPrefab, drillBurrow.skillName, "WorkerUnitSecondaryFamily", drillBurrow, SkillSlot.Secondary);
+            CreateGenericSkill(bodyPrefab, drillBurrow, "WorkerUnitSecondaryFamily", SkillSlot.Secondary);
             AISkillDriverData driverData = new AISkillDriverData
             {
                 masterPrefab = masterPrefab,
@@ -108,6 +108,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
         private float burrowEffectInterval = 0.2f;
         private Vector3 startPos;
         private HurtBox target;
+        private uint soundID;
         private enum DrillBurrowState
         {
             None,
@@ -130,7 +131,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
             attackDuration = baseAttackDuration / attackSpeedStat;
             totalDuration = windupDuration + burrowDuration + telegraphDuration + attackDuration;
             currentState = DrillBurrowState.Windup;
-
+            soundID = Util.PlaySound("Play_workerUnit_dig", this.gameObject);
             startPos = characterBody.transform.position;
             BullseyeSearch bullseyeSearch = new BullseyeSearch();
             bullseyeSearch.viewer = characterBody;
@@ -159,6 +160,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
             {
                 Emerge();
             }
+            AkSoundEngine.StopPlayingID(soundID);
         }
         public void SpawnDirtEffect()
         {
@@ -193,6 +195,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
                 if (success)
                 {
                     effectData._origin = hitInfo.point + randomOffset;
+                    TeleportHelper.TeleportBody(characterBody, hitInfo.point, false);
                 }
             }
             effectData.scale = currentState == DrillBurrowState.Burrowed ? 1f : 2f;
@@ -305,6 +308,7 @@ namespace EnemyAbilities.Abilities.SolusProspector
         {
             TeleportHelper.TeleportBody(characterBody, targetPos, false);
             Util.PlaySound("Play_MULT_m2_secondary_explode", base.gameObject);
+            AkSoundEngine.StopPlayingID(soundID);
             Emerge();
             SetSprintEffectState(true);
             PlayAnimation("Gesture, Additive", "FrenziedMeleeAttack", "attack.playbackRate", 1f);

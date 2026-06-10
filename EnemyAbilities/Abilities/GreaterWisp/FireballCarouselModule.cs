@@ -69,7 +69,7 @@ namespace EnemyAbilities.Abilities.GreaterWisp
             ModifyProjectileGhost();
             Utils.AddHealthOverride((originalMaxHealth, body) =>
             {
-                if (body == null || body.master != null)
+                if (body == null || body.master == null)
                 {
                     return originalMaxHealth;
                 }
@@ -97,7 +97,7 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                 combatSkill = true
             };
             SkillDef carousel = CreateSkillDef<SkillDef>(skillData);
-            CreateGenericSkill(bodyPrefab, carousel.skillName, "GreaterWispSpecialFamily", carousel, SkillSlot.Special);
+            CreateGenericSkill(bodyPrefab, carousel, "GreaterWispSpecialFamily", SkillSlot.Special);
             AISkillDriverData driverData = new AISkillDriverData
             {
                 masterPrefab = masterPrefab,
@@ -382,6 +382,7 @@ namespace EnemyAbilities.Abilities.GreaterWisp
             private int projectilesReadied;
             private int projectileCount = (int)FireballCarouselModule.projectileCount.Value;
             private bool readyToLaunch = false;
+            private EntityStateMachine bodyESM;
 
             public override void OnEnter()
             {
@@ -410,6 +411,8 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                 }
                 controller = characterBody.gameObject.GetComponent<CarouselController>();
                 projectilesReadied = 0;
+
+                bodyESM = characterBody.gameObject.GetComponents<EntityStateMachine>().Where(esm => esm.customName == "Body").FirstOrDefault();
             }
             public override void OnExit()
             {
@@ -421,6 +424,10 @@ namespace EnemyAbilities.Abilities.GreaterWisp
                 if (base.fixedAge > spinupDuration && !readyToLaunch)
                 {
                     readyToLaunch = true;
+                }
+                if (bodyESM != null && (bodyESM.state is StunState || bodyESM.state is ShockState || bodyESM.state is FrozenState) && !readyToLaunch)
+                {
+                    base.fixedAge = Mathf.Max(base.fixedAge - Time.fixedDeltaTime * 4f, 0f);
                 }
                 float percentageCompletion = Mathf.Clamp01(base.fixedAge / spinupDuration);
                 radius = startRadius + (endRadius - startRadius) * percentageCompletion;

@@ -1,7 +1,7 @@
 {
     "name": "EnemyAbilities",
-    "description": "A difficulty mod that adds 17 new skills for enemies to use, amongst other tweaks!",
-    "version_number": "1.13.0",
+    "description": "A difficulty mod that adds 20 new skills for enemies to use, amongst other tweaks!",
+    "version_number": "1.16.0",
     "dependencies": [
         "RiskofThunder-R2API_RecalculateStats-1.6.5",
         "RiskofThunder-R2API_Prefab-1.1.1",

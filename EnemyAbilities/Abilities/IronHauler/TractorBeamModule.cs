@@ -42,6 +42,7 @@ namespace EnemyAbilities.Abilities.IronHauler
         internal static ConfigEntry<bool> canFlingElites;
         internal static ConfigEntry<bool> canFlingBosses;
         internal static ConfigEntry<float> cooldown;
+        internal static ConfigEntry<bool> watchOut;
 
         public override void RegisterConfig()
         {
@@ -54,6 +55,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             canFlingElites = BindBool("Can Fling Elites", true, "Allows Solus Transporters to pick up and fling elite enemies");
             canFlingBosses = BindBool("Can Fling Bosses", false, "Allows Solus Transporters to pick up and fling bosses. UNTESTED - ENABLE AT YOUR OWN PERIL!");
             cooldown = BindFloat("Tractor Beam Cooldown", 12f, "The Cooldown for the Tractor Beam (which starts after an enemy is flung)", 5f, 30f, 0.1f, PluginConfig.FormatType.Time);
+            watchOut = BindBool("Watch Out!!!", false, "Watch out, watch out, WATCH OUT!");
             BindStats(bodyPrefab, [cscHauler], new StatOverrides { baseMoveSpeed = 14f, baseAcceleration = 20f, directorCost = 150 });
         }
         public override void Initialise()
@@ -139,7 +141,7 @@ namespace EnemyAbilities.Abilities.IronHauler
             };
             fling = CreateSkillDef<SkillDef>(skillData2);
 
-            CreateGenericSkill(bodyPrefab, tractorBeam.skillName, "IronHaulerUtilityFamily", tractorBeam, SkillSlot.Utility);
+            CreateGenericSkill(bodyPrefab, tractorBeam, "IronHaulerUtilityFamily", SkillSlot.Utility);
 
             AISkillDriverData driverDataFleeWithCargo = new AISkillDriverData
             {
@@ -240,11 +242,12 @@ namespace EnemyAbilities.Abilities.IronHauler
         }
         public void CreateBuffDef()
         {
+            Texture2D texture2D = EnemyAbilities.Instance.assetBundle.LoadAsset<Texture2D>("texTractorBeamIcon");
             cargoBuffDef = ScriptableObject.CreateInstance<BuffDef>();
             cargoBuffDef.name = "CargoBuff";
             cargoBuffDef.isDebuff = true;
             cargoBuffDef.canStack = false;
-            cargoBuffDef.iconSprite = buffIcon;
+            cargoBuffDef.iconSprite = Utils.CreateSprite(texture2D);
             cargoBuffDef.isHidden = false;
             ContentAddition.AddBuffDef(cargoBuffDef);
         }
@@ -912,6 +915,10 @@ namespace EnemyAbilities.Abilities.IronHauler
         }
         public void EnterFlungState()
         {
+            if (TractorBeamModule.watchOut.Value == true)
+            {
+                Util.PlaySound("Play_ironHaulerWatchOut", body.gameObject);
+            }
             if (motor != null)
             {
                 motor.velocity = flingVelocity;

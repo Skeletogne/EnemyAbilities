@@ -41,7 +41,7 @@ namespace EnemyAbilities
 
             if (targetIdx == currentIdx)
             {
-                Log.Warning($"Skilldriver {targetName} already has the target index of {targetIdx}");
+                //Log.Warning($"Skilldriver {targetName} already has the target index of {targetIdx}");
                 return;
             }
 
@@ -383,6 +383,15 @@ namespace EnemyAbilities
                     Log.Error($"IL.RoR2.CharacterBody.RecalculateStats health override hook failed!");
                 }
             };
+        }
+        public static Sprite CreateSprite(Texture2D texture)
+        {
+            if (texture == null)
+            {
+                Log.Error($"CreateSprite failed! Texture2D is null!");
+                return null;
+            }
+            return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector3(0.5f, 0.5f), 100f);
         }
     }
 }

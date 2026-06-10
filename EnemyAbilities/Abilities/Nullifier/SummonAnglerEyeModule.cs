@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 using UnityEngine;
-using RoR2BepInExPack;
-using BepInEx;
 using R2API;
 using UnityEngine.AddressableAssets;
 using RoR2BepInExPack.GameAssetPaths.Version_1_39_0;
@@ -11,13 +7,16 @@ using EntityStates;
 using RoR2.Skills;
 using RoR2.CharacterAI;
 using RoR2;
-using static EnemyAbilities.Abilities.Nullifier.SummonAnglerEyeModule;
 using System.Linq;
 using BepInEx.Configuration;
+using EntityStates.NullifierMonster;
+using RoR2.Projectile;
+using System.Reflection;
+using R2API.Utils;
 
 namespace EnemyAbilities.Abilities.Nullifier
 {
-    [EnemyAbilities.ModuleInfo("Summon Void Angler", "Gives Void Reavers a new Special Ability:\n-Summon Void Angler: This summons forth a Void Angler that takes incredibly long range shots at the player. (This module is still a work in progress!)", "Void Reaver", true)]
+    [EnemyAbilities.ModuleInfo("Summon Void Angler", "Gives Void Reavers a new Special Ability:\n-Summon Void Angler: This summons forth a Void Angler that takes incredibly long range shots at the player. Void Anglers provide vision for their summoning Reavers, allowing the Void Reaver to use it's primary without direct line of sight. Nuxlar's AugmentedVoidReaver pairs well with this module, and is fully compatible!", "Void Reaver", true)]
     public class SummonAnglerEyeModule : BaseModule
     {
         private static GameObject anglerEyeBodyPrefab = EnemyAbilities.Instance.assetBundle.LoadAsset<GameObject>("AnglerEyeBody");
@@ -27,26 +26,29 @@ namespace EnemyAbilities.Abilities.Nullifier
         private static GameObject anglerEyeLaserIndicator = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Golem.LaserGolem_prefab).WaitForCompletion().InstantiateClone("VoidAnglerLaserIndicator");
         private static GameObject portalVFX = Addressables.LoadAssetAsync<GameObject>(RoR2_Base_Nullifier.NullifierSpawnEffect_prefab).WaitForCompletion().InstantiateClone("AnglerEyeSpawnEffect");
         private static CharacterSpawnCard cscNullifier = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_Base_Nullifier.cscNullifier_asset).WaitForCompletion();
+        private static SkillDef firePortalBombSkillDef = Addressables.LoadAssetAsync<SkillDef>(RoR2_Base_Nullifier.FireNullifier_asset).WaitForCompletion();
 
         private static ConfigEntry<float> summonCooldown;
+        private static ConfigEntry<bool> anglersProvideVision;
         private static ConfigEntry<float> maxAnglers;
         private static ConfigEntry<float> anglerHealth;
         private static ConfigEntry<float> anglerMovespeed;
         private static ConfigEntry<float> anglerMaxRange;
         private static ConfigEntry<float> anglerBeamDamage;
         private static ConfigEntry<float> anglerBeamCooldown;
-        private static ConfigEntry<float> anglerAimSpeed;
+
+        private static BuffDef watchedDebuff;
         public override void RegisterConfig()
         {
             base.RegisterConfig();
             summonCooldown = BindFloat("Summon Cooldown", 12f, "The cooldown of the Summon Void Angler ability.", 6f, 30f, 0.1f, PluginConfig.FormatType.Time);
+            anglersProvideVision = BindBool("Anglers Provide Vision", true, "Void Anglers provide vision to their parent Void Reavers, allowing the Void Reavers to use their portal bombs without direct line-of-sight.");
             maxAnglers = BindFloat("Max Summons", 2f, "The maximum number of Void Anglers that can be active per Void Reaver.", 1f, 5f, 1f, PluginConfig.FormatType.None);
             anglerHealth = BindFloat("Angler Health", 40f, "The base health of Void Anglers at level 1. Increases by 30% per level.", 20f, 100f, 1f, PluginConfig.FormatType.None);
-            anglerMovespeed = BindFloat("Angler Speed", 10f, "The base movement speed of Void Anglers.", 4f, 20f, 1f, PluginConfig.FormatType.Speed);
-            anglerMaxRange = BindFloat("Angler Max Range", 500f, "The maximum attack range of Void Anglers", 50f, 1000f, 10f, PluginConfig.FormatType.Distance);
-            anglerBeamCooldown = BindFloat("Angler Beam Cooldown", 6f, "The cooldown of the Void Angler's beam attack.", 4f, 12f, 1f, PluginConfig.FormatType.Time);
+            anglerMovespeed = BindFloat("Angler Speed", 18f, "The base movement speed of Void Anglers.", 4f, 20f, 1f, PluginConfig.FormatType.Speed);
+            anglerMaxRange = BindFloat("Angler Max Range", 200f, "The maximum attack range of Void Anglers", 50f, 1000f, 10f, PluginConfig.FormatType.Distance);
+            anglerBeamCooldown = BindFloat("Angler Beam Cooldown", 8f, "The cooldown of the Void Angler's beam attack.", 4f, 12f, 1f, PluginConfig.FormatType.Time);
             anglerBeamDamage = BindFloat("Angler Beam Damage", 200f, "The damage coefficient of the Void Angler's beam attack.", 100f, 400f, 5f, PluginConfig.FormatType.Percentage);
-            anglerAimSpeed = BindFloat("Angler Aim Speed", 120f, "The max aim vector speed of the Void Angler. Higher values mean it's easier for the Void Angler to track the player and land it's shots.", 60f, 180f, 1f, PluginConfig.FormatType.None);
             BindStats(nullifierBodyPrefab, [cscNullifier]);
         }
         public override void Initialise()
@@ -55,11 +57,14 @@ namespace EnemyAbilities.Abilities.Nullifier
             GlobalEventManager.onCharacterDeathGlobal += KillLinkedAnglerEyes;
             ContentAddition.AddBody(anglerEyeBodyPrefab);
             ContentAddition.AddMaster(anglerEyeMasterPrefab);
+            PrefabAPI.RegisterNetworkPrefab(anglerEyeBodyPrefab);
+            PrefabAPI.RegisterNetworkPrefab(anglerEyeMasterPrefab);
             ContentAddition.AddEffect(portalVFX);
             nullifierBodyPrefab.AddComponent<NullifierSummonController>();
             LanguageAPI.Add("SKELETOGNE_ANGLEREYE_BODY_NAME", "Void Angler");
             CreateNullifierSkill();
             CreateAnglerEyeSkill();
+            CreateBuffDef();
             HurtBox hurtBox = anglerEyeBodyPrefab.GetComponentInChildren<HurtBox>();
             hurtBox.gameObject.layer = LayerIndex.entityPrecise.intVal;
 
@@ -86,29 +91,75 @@ namespace EnemyAbilities.Abilities.Nullifier
 
             BaseAI ai = anglerEyeMasterPrefab.GetComponent<BaseAI>();
             ai.scanState = new EntityStates.SerializableEntityStateType(typeof(EntityStates.AI.Walker.Wander));
-            ai.aimVectorMaxSpeed = anglerAimSpeed.Value;
 
             RigidbodyMotor motor = anglerEyeBodyPrefab.GetComponent<RigidbodyMotor>();
             RigidbodyDirection direction = anglerEyeBodyPrefab.GetComponent<RigidbodyDirection>();
             VectorPID[] vectorPIDs = anglerEyeBodyPrefab.GetComponents<VectorPID>();
             QuaternionPID quaternionPID = anglerEyeBodyPrefab.GetComponent<QuaternionPID>();
-            motor.forcePID = vectorPIDs[0]; 
-            direction.torquePID = vectorPIDs[1]; 
+            motor.forcePID = vectorPIDs[0];
+            direction.torquePID = vectorPIDs[1];
             direction.angularVelocityPID = quaternionPID;
 
             LineRenderer lineRenderer = anglerEyeLaserIndicator.GetComponent<LineRenderer>();
             lineRenderer.startWidth = 0.5f;
             lineRenderer.endWidth = 0.5f;
-            lineRenderer.startColor = new Color(1f, 0f, 1f);
-            lineRenderer.endColor = new Color(1f, 0f, 1f);
-            Material laserMaterial = Addressables.LoadAssetAsync<Material>(RoR2_Base_Nullifier.matNullifierStarTrail_mat).WaitForCompletion();
+            Material laserMaterial = new Material(Addressables.LoadAssetAsync<Material>(RoR2_DLC1_VoidSurvivor.matVoidBlinkTrail_mat).WaitForCompletion());
+            laserMaterial.SetColor("_TintColor", new Color(1f, 0f, 1f, 1f));
             lineRenderer.material = laserMaterial;
             lineRenderer.materials = [laserMaterial];
 
             CharacterModel characterModel = anglerEyeBodyPrefab.GetComponentInChildren<CharacterModel>();
-
             portalVFX.GetComponent<Transform>().localScale = new Vector3(0.5f, 0.5f, 0.5f);
 
+            if (EnemyAbilities.AVRInstalled && anglersProvideVision.Value == true)
+            {
+                On.RoR2.BullseyeSearch.GetResults += ModifyReaverBullseyeSearchResults;
+            }
+            else
+            {
+                firePortalBombSkillDef.activationState = ContentAddition.AddEntityState<EnemyAbilitiesAimPortalBomb>(out _);
+                ContentAddition.AddEntityState<EnemyAbilitiesFirePortalBomb>(out _);
+            }
+        }
+        private IEnumerable<HurtBox> ModifyReaverBullseyeSearchResults(On.RoR2.BullseyeSearch.orig_GetResults orig, BullseyeSearch self)
+        {
+            var originalList = orig(self);
+            if (self.maxDistanceFilter != FirePortalBomb.maxDistance)
+            {
+                return originalList;
+            }
+            if (self.sortMode != BullseyeSearch.SortMode.DistanceAndAngle)
+            {
+                return originalList;
+            }
+            if (self.viewer != null && self.viewer.bodyIndex == RoR2Content.BodyPrefabs.NullifierBody.bodyIndex)
+            {
+                CharacterMaster master = self.viewer.master;
+                if (master == null)
+                {
+                    return originalList;
+                }
+                BaseAI baseAI = master.gameObject.GetComponent<BaseAI>();
+                if (baseAI == null || baseAI.customTarget.mainHurtBox == null)
+                {
+                    return originalList;
+                }
+                HurtBox hurtBox = baseAI.customTarget.mainHurtBox;
+                return [hurtBox];
+            }
+            return originalList;
+        }
+        private void CreateBuffDef()
+        {
+            Texture2D texture = EnemyAbilities.Instance.assetBundle.LoadAsset<Texture2D>("texYouAreBeingWatchedIcon");
+            watchedDebuff = ScriptableObject.CreateInstance<BuffDef>();
+            watchedDebuff.isDebuff = true;
+            watchedDebuff.canStack = false;
+            watchedDebuff.isHidden = false;
+            watchedDebuff.iconSprite = Utils.CreateSprite(texture);
+            watchedDebuff.buffColor = new Color(1f, 0f, 1f, 1f);
+            watchedDebuff.name = "YOU_ARE_BEING_WATCHED";
+            ContentAddition.AddBuffDef(watchedDebuff);
         }
         private void KillLinkedAnglerEyes(DamageReport report)
         {
@@ -133,7 +184,8 @@ namespace EnemyAbilities.Abilities.Nullifier
                 combatSkill = true
             };
             SkillDef summonAnglerEye = CreateSkillDef<SkillDef>(skillDefData);
-            CreateGenericSkill(nullifierBodyPrefab, summonAnglerEye.skillName, "NullifierSpecialFamily", summonAnglerEye, RoR2.SkillSlot.Special);
+            CreateGenericSkill(nullifierBodyPrefab, summonAnglerEye, "NullifierSpecialFamily", RoR2.SkillSlot.Special);
+
             AISkillDriverData driverData = new AISkillDriverData
             {
                 masterPrefab = nullifierMasterPrefab,
@@ -150,6 +202,27 @@ namespace EnemyAbilities.Abilities.Nullifier
                 desiredIndex = 0
             };
             CreateAISkillDriver(driverData);
+            if (anglersProvideVision.Value)
+            {
+                AISkillDriverData spyDriverData = new AISkillDriverData
+                {
+                    masterPrefab = nullifierMasterPrefab,
+                    customName = "usePrimaryOnSpiedTarget",
+                    skillSlot = SkillSlot.Primary,
+                    minDistance = 0f,
+                    maxDistance = Mathf.Infinity,
+                    activationRequiresTargetLoS = false,
+                    activationRequiresAimTargetLoS = false,
+                    activationRequiresAimConfirmation = false,
+                    driverUpdateTimerOverride = 1f,
+                    aimType = AISkillDriver.AimType.AtMoveTarget,
+                    movementType = AISkillDriver.MovementType.StrafeMovetarget,
+                    targetType = AISkillDriver.TargetType.Custom,
+                    buttonPressType = AISkillDriver.ButtonPressType.Hold,
+                    desiredIndex = 0
+                };
+                CreateAISkillDriver(spyDriverData);
+            }
         }
         public void CreateAnglerEyeSkill()
         {
@@ -163,7 +236,7 @@ namespace EnemyAbilities.Abilities.Nullifier
                 combatSkill = true
             };
             SkillDef shoot = CreateSkillDef<SkillDef>(skillDefData);
-            CreateGenericSkill(anglerEyeBodyPrefab, shoot.skillName, "AnglerEyePrimaryFamily", shoot, SkillSlot.Primary);
+            CreateGenericSkill(anglerEyeBodyPrefab, shoot, "AnglerEyePrimaryFamily", SkillSlot.Primary);
             AISkillDriverData fleeTarget = new AISkillDriverData
             {
                 masterPrefab = anglerEyeMasterPrefab,
@@ -186,23 +259,26 @@ namespace EnemyAbilities.Abilities.Nullifier
                 minDistance = 0f,
                 maxDistance = anglerMaxRange.Value,
                 selectionRequiresTargetLoS = true,
+                selectionRequiresAimTarget = true,
                 aimType = AISkillDriver.AimType.AtCurrentEnemy,
                 movementType = AISkillDriver.MovementType.Stop,
                 targetType = AISkillDriver.TargetType.CurrentEnemy,
                 desiredIndex = 1,
-                driverUpdateTimerOverride = 2.5f
+                driverUpdateTimerOverride = 3.5f
             };
             AISkillDriverData strafeTarget = new AISkillDriverData
             {
                 masterPrefab = anglerEyeMasterPrefab,
-                customName = "strafeAndShootTarget",
+                customName = "strafeAndWaitForPrimary",
                 skillSlot = SkillSlot.None,
                 minDistance = 0f,
-                maxDistance = anglerMaxRange.Value / 2f,
-                selectionRequiresTargetLoS = false,
+                maxDistance = anglerMaxRange.Value,
+                selectionRequiresTargetLoS = true,
+                selectionRequiresAimTarget = true,
                 aimType = AISkillDriver.AimType.AtCurrentEnemy,
                 movementType = AISkillDriver.MovementType.StrafeMovetarget,
                 targetType = AISkillDriver.TargetType.CurrentEnemy,
+                moveInputScale = 0.5f,
                 desiredIndex = 2
             };
             AISkillDriverData chaseTarget = new AISkillDriverData
@@ -213,6 +289,7 @@ namespace EnemyAbilities.Abilities.Nullifier
                 minDistance = 0f,
                 maxDistance = Mathf.Infinity,
                 selectionRequiresTargetLoS = false,
+                selectionRequiresAimTarget = false,
                 aimType = AISkillDriver.AimType.AtCurrentEnemy,
                 movementType = AISkillDriver.MovementType.ChaseMoveTarget,
                 targetType = AISkillDriver.TargetType.CurrentEnemy,
@@ -236,7 +313,7 @@ namespace EnemyAbilities.Abilities.Nullifier
             {
                 base.OnEnter();
                 controller = characterBody.GetComponent<NullifierSummonController>();
-                if (controller.livingSummons.Count >= maxSummons)
+                if (controller.summons.Count >= maxSummons)
                 {
                     outer.SetNextStateToMain();
                     return;
@@ -246,10 +323,6 @@ namespace EnemyAbilities.Abilities.Nullifier
             }
             public void SpawnVoidEye()
             {
-                if (!base.isAuthority)
-                {
-                    return;
-                }
                 MasterSummon summon = new MasterSummon
                 {
                     masterPrefab = anglerEyeMasterPrefab,
@@ -262,7 +335,7 @@ namespace EnemyAbilities.Abilities.Nullifier
                 summon.useAmbientLevel = null;
                 CharacterMaster master = summon.Perform();
                 CharacterBody summonedBody = master.GetBody();
-                controller.livingSummons.Add(summonedBody);
+                controller.AddSummon(summonedBody);
             }
             public override void OnExit()
             {
@@ -373,9 +446,9 @@ namespace EnemyAbilities.Abilities.Nullifier
         }
         public class AnglerEyeShoot : BaseSkillState
         {
-            public static float baseAttackDuration = 1.5f;
+            public static float baseAttackDuration = 3f;
             public float attackDuration;
-            public static float baseTotalDuration = 2.667f;
+            public static float baseTotalDuration = 5.334f;
             public static float damageCoefficient = anglerBeamDamage.Value / 100f;
             private float totalDuration;
             private BaseAI baseAI;
@@ -389,6 +462,11 @@ namespace EnemyAbilities.Abilities.Nullifier
             private static GameObject muzzleFlashEffectPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_VoidSurvivor.VoidSurvivorBeamMuzzleflash_prefab).WaitForCompletion();
             private static GameObject impactEffectPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_VoidSurvivor.VoidSurvivorBeamImpact_prefab).WaitForCompletion();
             private static GameObject tracerEffectPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_VoidSurvivor.VoidSurvivorBeamTracer_prefab).WaitForCompletion();
+            private uint soundID;
+            private Vector3 currentLaserDirection;
+            private static float stiffness = 30f;
+            private static float damping = 4f;
+            private Vector3 laserAngularVelocity = Vector3.zero;
             public override void OnEnter()
             {
                 base.OnEnter();
@@ -404,6 +482,7 @@ namespace EnemyAbilities.Abilities.Nullifier
                 }
                 PlayCrossfade("Body", "Attack", "PlaybackRate.attack1", totalDuration, 0.2f);
                 ChildLocator locator = modelLocator.modelTransform.GetComponent<ChildLocator>();
+                soundID = Util.PlaySound("Play_voidAngler_attack1_warning", this.gameObject);
                 if (locator != null)
                 {
                     eyeMuzzle = locator.FindChild("EyeMuzzle");
@@ -425,6 +504,7 @@ namespace EnemyAbilities.Abilities.Nullifier
                     laserLineComponent = laserIndicatorInstance.GetComponent<LineRenderer>();
                     laserLineComponent.startWidth = 0.4f;
                     laserLineComponent.endWidth = 0.4f;
+                    currentLaserDirection = GetAimRay().direction;
                     UpdateLaserEndPoint();
                     UpdateLaserVisualPosition();
                 }
@@ -439,11 +519,12 @@ namespace EnemyAbilities.Abilities.Nullifier
                     Destroy(laserIndicatorInstance);
                     laserIndicatorInstance = null;
                     laserLineComponent = null;
-                    Util.PlaySound("Play_voidman_m1_shoot", gameObject);
+                    Util.PlaySound("Play_anglerEye_shoot_02", gameObject);
                     if (muzzleFlashEffectPrefab != null)
                     {
                         EffectManager.SimpleMuzzleFlash(muzzleFlashEffectPrefab, base.gameObject, "EyeMuzzle", false);
                     }
+                    AkSoundEngine.StopPlayingID(soundID);
                     if (base.isAuthority)
                     {
                         DamageTypeCombo combo = new DamageTypeCombo { damageSource = DamageSource.Primary, damageType = DamageType.Generic };
@@ -453,7 +534,7 @@ namespace EnemyAbilities.Abilities.Nullifier
                             owner = base.gameObject,
                             weapon = base.gameObject,
                             origin = aimRay.origin,
-                            aimVector = aimRay.direction,
+                            aimVector = currentLaserDirection,
                             muzzleName = "EyeMuzzle",
                             maxDistance = maxRange,
                             minSpread = 0f,
@@ -501,18 +582,29 @@ namespace EnemyAbilities.Abilities.Nullifier
             }
             public void UpdateLaserEndPoint()
             {
+
+
                 if (targetBody != null && laserIndicatorInstance != null)
                 {
+                    //vectors baybee
+
+                    Vector3 muzzlePos = eyeMuzzle != null ? eyeMuzzle.position : transform.position;
+                    Vector3 desiredDirection = (targetBody.corePosition - muzzlePos).normalized;
+                    Vector3 directionError = desiredDirection - currentLaserDirection;
+                    Vector3 springForce = directionError * stiffness;
+                    Vector3 dampingForce = -laserAngularVelocity * damping;
+                    laserAngularVelocity += (springForce + dampingForce) * Time.fixedDeltaTime;
+                    currentLaserDirection = (currentLaserDirection + laserAngularVelocity * Time.fixedDeltaTime).normalized;
+
                     Ray aimRay = GetAimRay();
-                    Vector3 targetBodyPosition = targetBody.corePosition;
-                    bool success = Physics.Raycast(aimRay.origin, aimRay.direction, out RaycastHit hit, maxRange, LayerIndex.CommonMasks.laser);
+                    bool success = Physics.Raycast(aimRay.origin, currentLaserDirection, out RaycastHit hit, maxRange, LayerIndex.CommonMasks.laser);
                     if (success)
                     {
                         laserEndPosition = hit.point;
                     }
                     else
                     {
-                        laserEndPosition = aimRay.GetPoint(maxRange);
+                        laserEndPosition = aimRay.origin + currentLaserDirection * maxRange;
                     }
                 }
             }
@@ -540,11 +632,6 @@ namespace EnemyAbilities.Abilities.Nullifier
                 Transform eyeBeamTransform = locator.FindChild("EyeBeam");
                 Light light = eyeBeamTransform.gameObject.GetComponent<Light>();
                 light.enabled = false;
-                Transform lureBaseTransform = locator.FindChild("LureBase");
-                DynamicBone bone = lureBaseTransform.gameObject.GetComponent<DynamicBone>();
-                bone.m_Stiffness = 0.01f;
-                bone.m_Damping = 0.01f;
-                bone.m_Elasticity = 0.05f;
             }
             public override void FixedUpdate()
             {
@@ -569,34 +656,220 @@ namespace EnemyAbilities.Abilities.Nullifier
         }
         public class NullifierSummonController : MonoBehaviour
         {
-            public List<CharacterBody> livingSummons;
+            public class SummonInfo
+            {
+                public CharacterBody body;
+                public BaseAI ai;
+            }
+            public List<SummonInfo> summons = new List<SummonInfo>();
+            public List<CharacterBody> spiedEnemies = new List<CharacterBody>();
+            public float spyCheckTimer;
+            public float spyCheckInterval = 0.25f;
+            private BaseAI reaverAI;
+            public void Start()
+            {
+                CharacterBody reaverBody = GetComponent<CharacterBody>();
+                if (reaverBody != null)
+                {
+                    CharacterMaster reaverMaster = reaverBody.master;
+                    if (reaverMaster != null)
+                    {
+                        reaverAI = reaverMaster.gameObject.GetComponent<BaseAI>();
+                    }
+                }
+            }
+            public void AddSummon(CharacterBody body)
+            {
+                
+                if (body != null && body.master != null)
+                {
+                    BaseAI anglerAI = body.master.gameObject.GetComponent<BaseAI>();
+                    if (anglerAI != null)
+                    {
+                        SummonInfo summonInfo = new SummonInfo
+                        {
+                            body = body,
+                            ai = anglerAI
+                        };
+                        summons.Add(summonInfo);
+                    }
+                }
+            }
             public void FixedUpdate()
             {
-                for (int i = livingSummons.Count - 1; i >= 0; i--)
+                for (int i = summons.Count - 1; i >= 0; i--)
                 {
-                    CharacterBody body = livingSummons[i];
+                    SummonInfo summonInfo = summons[i];
+                    CharacterBody body = summonInfo.body;
                     if (body == null || body.healthComponent == null || body.healthComponent.alive == false)
                     {
-                        if (body == null || body.healthComponent == null || body.healthComponent.alive == false)
+                        summons.Remove(summonInfo);
+                    }
+                }
+                if (!anglersProvideVision.Value)
+                {
+                    return;
+                }
+                spyCheckTimer -= Time.fixedDeltaTime;
+                if (spyCheckTimer < 0)
+                {
+                    spyCheckTimer += spyCheckInterval;
+                    spiedEnemies = new List<CharacterBody>();
+                    foreach (SummonInfo summon in summons)
+                    {
+                        CharacterBody anglerBody = summon.body;
+                        BaseAI anglerAI = summon.ai;
+                        if (anglerBody == null || anglerAI == null)
                         {
-                            livingSummons.Remove(body);
+                            continue;
+                        }
+                        if (anglerAI.currentEnemy != null && anglerAI.currentEnemy.characterBody != null)
+                        {
+                            CharacterBody anglerEnemyBody = anglerAI.currentEnemy.characterBody;
+                            float distance = Vector3.Distance(anglerBody.corePosition, anglerEnemyBody.corePosition);
+                            if (distance > anglerMaxRange.Value)
+                            {
+                                continue;
+                            }
+                            if (anglerAI.currentEnemy.hasLoS && !spiedEnemies.Contains(anglerEnemyBody))
+                            {
+                                spiedEnemies.Add(anglerEnemyBody);
+                            }
+                        }
+                    }
+                    if (spiedEnemies.Count > 0)
+                    {
+                        if (reaverAI != null)
+                        {
+                            reaverAI.SetCustomTargetGameObject(spiedEnemies[0].gameObject);
+                        }
+                    }
+                    else
+                    {
+                        reaverAI.customTarget.gameObject = null;
+                    }
+                    foreach (CharacterBody body in spiedEnemies)
+                    {
+                        if (body != null)
+                        {
+                            body.AddTimedBuff(watchedDebuff, 1f);
                         }
                     }
                 }
             }
             public void KillAllSumons()
             {
-                if (livingSummons.Count > 0)
+                if (summons.Count > 0)
                 {
-                    for (int i = livingSummons.Count - 1; i >= 0; i--)
+                    for (int i = summons.Count - 1; i >= 0; i--)
                     {
-                        CharacterBody body = livingSummons[i];
+                        CharacterBody body = summons[i].body;
                         if (body != null && body.healthComponent != null)
                         {
                             body.healthComponent.Suicide();
                         }
                     }
                 }
+            }
+        }
+        public class EnemyAbilitiesAimPortalBomb : AimPortalBomb
+        {
+            private HurtBox customTargetHurtBox;
+            public override void OnEnter()
+            {
+                base.OnEnter();
+                if (!base.isAuthority || characterBody == null || characterBody.master == null)
+                {
+                    return;
+                }
+                BaseAI ai = characterBody.master.gameObject.GetComponent<BaseAI>();
+                if (ai == null || ai.customTarget.bestHurtBox == null)
+                {
+                    return;
+                }
+                customTargetHurtBox = ai.customTarget.bestHurtBox;
+            }
+            public override void FixedUpdate()
+            {
+                base.FixedUpdate();
+                if (customTargetHurtBox != null )
+                {
+                    outer.SetNextState(new EnemyAbilitiesFirePortalBomb { customTargetHurtBox = customTargetHurtBox });
+                }
+            }
+            public override InterruptPriority GetMinimumInterruptPriority()
+            {
+                return InterruptPriority.PrioritySkill;
+            }
+        }
+        public class EnemyAbilitiesFirePortalBomb : FirePortalBomb
+        {
+            public HurtBox customTargetHurtBox;
+            public override void OnEnter()
+            {
+                base.OnEnter();
+            }
+            public override void FixedUpdate()
+            {
+                if (customTargetHurtBox == null)
+                {
+                    base.FixedUpdate();
+                }
+                else
+                {
+                    CustomFixedUpdate();
+                }
+            }
+            public void CustomFixedUpdate()
+            {
+                //have to do this since we don't call EntityState.FixedUpdate
+                fixedAge += GetDeltaTime();
+                if (!base.isAuthority)
+                {
+                    return;
+                }
+                fireTimer -= Time.fixedDeltaTime;
+                if (fireTimer <= 0)
+                {
+                    fireTimer += fireInterval;
+                    FireBomb();
+                    bombsFired++;
+                }
+                if (base.fixedAge >= duration)
+                {
+                    outer.SetNextStateToMain();
+                }
+            }
+            public void FireBomb()
+            {
+
+                if (customTargetHurtBox != null)
+                {
+                    Vector3 hurtBoxPos = customTargetHurtBox.transform.position;
+                    Vector2 offset = bombsFired == 0 ? Vector2.zero : UnityEngine.Random.insideUnitCircle.normalized * 5f * bombsFired;
+                    hurtBoxPos.x += offset.x;
+                    hurtBoxPos.z += offset.y;
+                    Vector3 raycastStartPos = hurtBoxPos;
+                    Vector3 attackPos = raycastStartPos;
+                    bool success = Physics.Raycast(raycastStartPos + new Vector3(0f, 10f, 0f), Vector3.down, out RaycastHit hit, 20f, LayerIndex.world.mask, QueryTriggerInteraction.Ignore);
+                    if (success)
+                    {
+                        attackPos = hit.point;
+                    }
+                    FireProjectileInfo fireProjectileInfo = default(FireProjectileInfo);
+                    fireProjectileInfo.projectilePrefab = portalBombProjectileEffect;
+                    fireProjectileInfo.position = attackPos;
+                    fireProjectileInfo.rotation = Quaternion.identity;
+                    fireProjectileInfo.owner = base.gameObject;
+                    fireProjectileInfo.damage = damageStat * damageCoefficient;
+                    fireProjectileInfo.force = force;
+                    fireProjectileInfo.crit = base.characterBody.RollCrit();
+                    ProjectileManager.instance.FireProjectile(fireProjectileInfo);
+                }
+            }
+            public override InterruptPriority GetMinimumInterruptPriority()
+            {
+                return InterruptPriority.PrioritySkill;
             }
         }
     }

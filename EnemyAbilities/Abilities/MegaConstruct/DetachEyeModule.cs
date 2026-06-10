@@ -275,7 +275,7 @@ namespace EnemyAbilities.Abilities.XiConstruct
             };
             DetachEyeSkillDef detachEye = CreateSkillDef<DetachEyeSkillDef>(skillData);
 
-            CreateGenericSkill(bodyPrefab, detachEye.skillName, "MegaConstructSecondaryFamily", detachEye, SkillSlot.Secondary);
+            CreateGenericSkill(bodyPrefab, detachEye, "MegaConstructSecondaryFamily", SkillSlot.Secondary);
 
             AISkillDriverData driverData = new AISkillDriverData
             {

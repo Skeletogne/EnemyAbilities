@@ -85,7 +85,7 @@ namespace EnemyAbilities.Abilities.Bell
             DestroyOnTimer destroyOnTimer = bellProjectile.GetComponent<DestroyOnTimer>();
             destroyOnTimer.duration = 20f;
             ObjectScaleCurve curve = bellProjectileGhost.GetComponentInChildren<ObjectScaleCurve>();
-            Destroy(curve);
+            DestroyImmediate(curve);
             ProjectileBellRemoteDetonation remoteDetonation = bellProjectile.AddComponent<ProjectileBellRemoteDetonation>();
         }
         private void CreateSkill()
@@ -100,7 +100,7 @@ namespace EnemyAbilities.Abilities.Bell
                 combatSkill = true
             };
             RemoteDetonationSkillDef remoteDetonation = CreateSkillDef<RemoteDetonationSkillDef>(skillDefData);
-            CreateGenericSkill(bodyPrefab, remoteDetonation.skillName, "BellSpecialFamily", remoteDetonation, SkillSlot.Special);
+            CreateGenericSkill(bodyPrefab, remoteDetonation, "BellSpecialFamily", SkillSlot.Special);
             AISkillDriverData driverData = new AISkillDriverData
             {
                 masterPrefab = masterPrefab,
@@ -351,6 +351,10 @@ namespace EnemyAbilities.Abilities.Bell
             }
             public void Prime()
             {
+                if (state == BombState.Primed)
+                {
+                    return;
+                }
                 state = BombState.Primed;
                 startPosition = transform.position;
                 targetPosition = transform.position + new Vector3(0f, explodeHeight, 0f);
@@ -368,6 +372,10 @@ namespace EnemyAbilities.Abilities.Bell
                 if (controller != null && controller.ghost != null)
                 {
                     ProjectileGhostController ghost = controller.ghost;
+                    if (ghost.gameObject.GetComponent<ObjectScaleCurve>() != null)
+                    {
+                        return;
+                    }
                     ObjectScaleCurve objectScale = ghost.gameObject.AddComponent<ObjectScaleCurve>();
                     objectScale.overallCurve = new AnimationCurve();
                     for (int i = 0; i < 11; i++)
@@ -391,7 +399,10 @@ namespace EnemyAbilities.Abilities.Bell
             {
                 if (state == BombState.Primed)
                 {
-                    chargeInstance.transform.position = transform.position;
+                    if (chargeInstance != null)
+                    {
+                        chargeInstance.transform.position = transform.position;
+                    }
                     if (primeTimer <= primeDelay)
                     {
                         primeTimer += Time.fixedDeltaTime;
@@ -404,27 +415,29 @@ namespace EnemyAbilities.Abilities.Bell
                     transform.position = newPosition;
                     if (explosionStopwatch > explosionDelay)
                     {
-
-                        BlastAttack blastAttack = new BlastAttack
+                        if (controller != null && filter != null && projectileDamage != null)
                         {
-                            attacker = controller.owner,
-                            inflictor = controller.owner,
-                            teamIndex = filter.teamIndex,
-                            attackerFiltering = AttackerFiltering.Default,
-                            position = transform.position,
-                            radius = explosionRadius,
-                            falloffModel = BlastAttack.FalloffModel.SweetSpot,
-                            baseDamage = bellDamage * damageCoefficient,
-                            baseForce = 3000f,
-                            crit = projectileDamage.crit,
-                            damageType = projectileDamage.damageType,
-                            damageColorIndex = projectileDamage.damageColorIndex,
-                            procChainMask = default(ProcChainMask),
-                            procCoefficient = 1f
-                        };
-                        if (NetworkServer.active)
-                        {
-                            blastAttack.Fire();
+                            BlastAttack blastAttack = new BlastAttack
+                            {
+                                attacker = controller.owner,
+                                inflictor = controller.owner,
+                                teamIndex = filter.teamIndex,
+                                attackerFiltering = AttackerFiltering.Default,
+                                position = transform.position,
+                                radius = explosionRadius,
+                                falloffModel = BlastAttack.FalloffModel.SweetSpot,
+                                baseDamage = bellDamage * damageCoefficient,
+                                baseForce = 3000f,
+                                crit = projectileDamage.crit,
+                                damageType = projectileDamage.damageType,
+                                damageColorIndex = projectileDamage.damageColorIndex,
+                                procChainMask = default(ProcChainMask),
+                                procCoefficient = 1f
+                            };
+                            if (NetworkServer.active)
+                            {
+                                blastAttack.Fire();
+                            }
                         }
                         EffectManager.SpawnEffect(explosionPrefab, new EffectData { origin = transform.position, rotation = transform.rotation, scale = explosionRadius }, true);
                         Destroy(this.gameObject);

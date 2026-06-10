@@ -77,6 +77,7 @@ namespace EnemyAbilities.Abilities
             public AISkillDriver nextHighPriorityOverride = null;
             public bool shouldSprint = false;
             public float aimVectorMaxSpeedOverride = -1f;
+            public AISkillDriver.ButtonPressType buttonPressType = AISkillDriver.ButtonPressType.Hold;
         }
         public class StatOverrides
         {
@@ -218,12 +219,13 @@ namespace EnemyAbilities.Abilities
             ContentAddition.AddSkillDef(skillDef);
             return skillDef;
         }
-        protected GenericSkill CreateGenericSkill(GameObject bodyPrefab, string skillName, string familyName, SkillDef skillDef, SkillSlot slot)
+        protected GenericSkill CreateGenericSkill(GameObject bodyPrefab, SkillDef skillDef, string familyName, SkillSlot slot)
         {
             SkillFamily family = ScriptableObject.CreateInstance<SkillFamily>();
             (family as ScriptableObject).name = familyName;
             family.variants = [new SkillFamily.Variant() { skillDef = skillDef }];
 
+            string skillName = skillDef.skillName;
             GenericSkill skill = bodyPrefab.AddComponent<GenericSkill>();
             skill.skillName = skillName;
             skill._skillFamily = family;
@@ -289,6 +291,7 @@ namespace EnemyAbilities.Abilities
             driver.nextHighPriorityOverride = data.nextHighPriorityOverride;
             driver.shouldSprint = data.shouldSprint;
             driver.aimVectorMaxSpeedOverride = data.aimVectorMaxSpeedOverride;
+            driver.buttonPressType = data.buttonPressType;
             data.masterPrefab.ReorderSkillDrivers(driver, data.desiredIndex);
             return driver;
         }

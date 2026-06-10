@@ -45,7 +45,7 @@ namespace EnemyAbilities.Abilities.ExtractorUnit
             cooldown = BindFloat("Tether Cooldown", 6f, "Cooldown of the tether ability", 5f, 20f, 0.1f, PluginConfig.FormatType.Time);
             maxUseDistance = BindFloat("Tether Max Use Distance", 70f, "The maximum distance that Extractors will attempt to tether towards their target.", 40f, 100f, 1f, PluginConfig.FormatType.Distance);
             telegraphDuration = BindFloat("Tether Telegraph Duration", 0.8f, "The duration of time that Extractors will spend charging their tether.", 0.5f, 3f, 0.1f, PluginConfig.FormatType.Time);
-            projectileSpeed = BindFloat("Tether Projectile Speed", 100f, "The movement speed of the tether projectile. Lower values are recommended if using predictive aiming.", 40f, 160f, 1f, PluginConfig.FormatType.Speed);
+            projectileSpeed = BindFloat("Tether Projectile Speed", 120f, "The movement speed of the tether projectile. Lower values are recommended if using predictive aiming.", 40f, 200f, 1f, PluginConfig.FormatType.Speed);
             isPredictive = BindBool("Tether Uses Prediction", false, "If enabled, Extractors will attempt to lead their shots in order to more often hit the player.\nI'll be honest, the prediction I designed for this is kinda ass, hence why it only exists as a config option now. Enable at your own peril.");
             damageCoeff = BindFloat("Tether Damage Coefficient", 200f, "The damage coefficient of the tether upon hitting a target.", 100f, 400f, 5f, PluginConfig.FormatType.Percentage);
             projectileDistanceLimit = BindFloat("Tether Max Projectile Distance", 80f, "The maximum distance that the tether can travel before disappearing. Setting this lower than max use distance will cause Extractors to sometimes fire whilst out of range.", 40f, 200f, 1f, PluginConfig.FormatType.Distance);
@@ -69,7 +69,7 @@ namespace EnemyAbilities.Abilities.ExtractorUnit
                 intPrio = InterruptPriority.Any
             };
             SkillDef hook = CreateSkillDef<SkillDef>(skillDefData);
-            CreateGenericSkill(bodyPrefab, hook.skillName, "ExtractorUnitUtilityFamily", hook, SkillSlot.Utility);
+            CreateGenericSkill(bodyPrefab, hook, "ExtractorUnitUtilityFamily", SkillSlot.Utility);
 
             AISkillDriverData driverData = new AISkillDriverData
             {
@@ -83,6 +83,7 @@ namespace EnemyAbilities.Abilities.ExtractorUnit
                 targetType = prioritiseInventories.Value == true ? AISkillDriver.TargetType.Custom : AISkillDriver.TargetType.CurrentEnemy,
                 movementType = AISkillDriver.MovementType.ChaseMoveTarget,
                 aimType = AISkillDriver.AimType.AtMoveTarget,
+                activationRequiresTargetLoS = true,
                 desiredIndex = 3,
                 driverUpdateTimerOverride = 2f,
                 moveInputScale = 0.5f
@@ -469,6 +470,18 @@ namespace EnemyAbilities.Abilities.ExtractorUnit
                 {
                     Vector3 direction = (gameObject.transform.position - ownerBody.transform.position).normalized;
                     Vector3 velocity = direction * hookSpeed;
+
+                    bool pastTargetBody = false;
+                    if (ownerTargetBody != null)
+                    {
+                        Vector3 targetBodyPosition = ownerTargetBody.transform.position;
+                        Vector3 vectorToTarget = targetBodyPosition - ownerBody.transform.position;
+                        float dot = Vector3.Dot(velocity, vectorToTarget);
+                        if (dot < 0)
+                        {
+                            pastTargetBody = true;
+                        }
+                    }
                     float distanceToTetherTarget = Vector3.Distance(transform.position, ownerBody.transform.position);
                     CharacterMotor motor = ownerBody.characterMotor;
                     if (motor != null)
@@ -491,7 +504,7 @@ namespace EnemyAbilities.Abilities.ExtractorUnit
                     bool tetherTargetInRange = distanceToTetherTarget < rangeToUntether;
                     //detaches if: hooking for longer than 1s. the end of it's hook is within 5m. it's current target is within 5m.
 
-                    if (impactStopwatch > timeAfterImpact || ownerTargetBodyInRange || tetherTargetInRange)
+                    if (impactStopwatch > timeAfterImpact || ownerTargetBodyInRange || tetherTargetInRange || pastTargetBody)
                     {
                         if (motor != null)
                         {
@@ -584,6 +597,10 @@ namespace EnemyAbilities.Abilities.ExtractorUnit
                 }
                 CharacterBody victimBody = hurtBox.healthComponent.body;
                 if (victimBody == null)
+                {
+                    return false;
+                }
+                if (victimBody.master == null)
                 {
                     return false;
                 }

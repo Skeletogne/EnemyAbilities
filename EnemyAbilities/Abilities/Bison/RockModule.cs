@@ -38,6 +38,7 @@ namespace EnemyAbilities.Abilities.Bison
         internal static ConfigEntry<float> rockMaxHealth;
         internal static ConfigEntry<float> rockCooldown;
         internal static ConfigEntry<float> rockSpreadAngle;
+        internal static ConfigEntry<float> rockPlayerDetonationBonus;
         public override void RegisterConfig()
         {
             base.RegisterConfig();
@@ -50,6 +51,7 @@ namespace EnemyAbilities.Abilities.Bison
             rockCooldown = BindFloat("Rock Cooldown", 15f, "Cooldown before the ability can be activated again", 5f, 30f, 0.1f, PluginConfig.FormatType.Time);
             rockMaxHealth = BindFloat("Rock Health", 400f, "Max health of the rock at Level 1. Gains 30% of this value per level", 100f, 600f, 10f, PluginConfig.FormatType.None);
             rockSpreadAngle = BindFloat("Rock Spread Angle", 22f, "The total spread angle of rocks beyond 1 launched by this ability.", 10f, 50f, 1f, PluginConfig.FormatType.None);
+            rockPlayerDetonationBonus = BindFloat("Rock Player Detonation Multiplier", 2.5f, "The damage multiplier applied to the rock if it is detonated by a player.", 1f, 4f, 0.1f, PluginConfig.FormatType.Multiplier);
             BindStats(bodyPrefab, [cscBison]);
         }
         public override void Initialise()
@@ -129,7 +131,7 @@ namespace EnemyAbilities.Abilities.Bison
             };
             SkillDef spawnRock = CreateSkillDef<SpawnRockSkillDef>(skillData);
 
-            CreateGenericSkill(bodyPrefab, skillData.skillName, "BisonSecondaryFamily", spawnRock, SkillSlot.Secondary);
+            CreateGenericSkill(bodyPrefab, spawnRock, "BisonSecondaryFamily", SkillSlot.Secondary);
 
             AISkillDriverData driverData = new AISkillDriverData
             {
@@ -443,7 +445,6 @@ namespace EnemyAbilities.Abilities.Bison
             }
             private void Detonate(DamageReport report)
             {
-
                 CharacterBody attackerBody = report.attackerBody;
                 if (attackerBody == null)
                 {
@@ -489,6 +490,8 @@ namespace EnemyAbilities.Abilities.Bison
                 }
                 DamageTypeCombo combo = new DamageTypeCombo { damageType = DamageType.Generic, damageSource = DamageSource.Secondary };
                 combo.AddModdedDamageType(rockDamageType);
+                bool isPlayerDetonated = teamComponent.teamIndex == TeamIndex.Player;
+                float teamDamageMultiplier = isPlayerDetonated ? rockPlayerDetonationBonus.Value : 1f;
                 for (int i = 0; i < childCount; i++)
                 {
                     float totalSpread = maxSpreadAngle * 2f;
@@ -496,8 +499,9 @@ namespace EnemyAbilities.Abilities.Bison
                     float startSpread = childCount > 1 ? -maxSpreadAngle : 0f;
                     float currentSpread = startSpread + spreadInterval * i;
                     Vector3 updatedDirection = Util.ApplySpread(projectileDirection, 0f, 0f, 1f, 1f, currentSpread);
-                    ProjectileManager.instance.FireProjectile(miniRockProjectile, transform.position + new Vector3(0f, 1f, 0f), Util.QuaternionSafeLookRotation(updatedDirection), attackerBody.gameObject, (rockChildDamageCoeff.Value / 100f) * attackerBody.damage, 1000f, attackerBody.RollCrit(), DamageColorIndex.Default, null, magnitude, combo);
+                    ProjectileManager.instance.FireProjectile(miniRockProjectile, transform.position + new Vector3(0f, 1f, 0f), Util.QuaternionSafeLookRotation(updatedDirection), attackerBody.gameObject, (rockChildDamageCoeff.Value / 100f) * attackerBody.damage * teamDamageMultiplier, 1000f, attackerBody.RollCrit(), DamageColorIndex.Default, null, magnitude, combo);
                 }
+
                 BlastAttack blastAttack = new BlastAttack();
                 blastAttack.position = transform.position;
                 blastAttack.radius = rockExplosionRadius.Value;
@@ -505,7 +509,7 @@ namespace EnemyAbilities.Abilities.Bison
                 blastAttack.crit = attackerBody.RollCrit();
                 blastAttack.procCoefficient = 1f;
                 blastAttack.attackerFiltering = AttackerFiltering.NeverHitSelf;
-                blastAttack.baseDamage = (rockExplosionCoeff.Value / 100f) * attackerBody.damage;
+                blastAttack.baseDamage = (rockExplosionCoeff.Value / 100f) * attackerBody.damage * teamDamageMultiplier;
                 blastAttack.baseForce = 2000f;
                 blastAttack.bonusForce = new Vector3(0f, 1000f, 0f);
                 blastAttack.damageColorIndex = DamageColorIndex.Default;
@@ -515,6 +519,11 @@ namespace EnemyAbilities.Abilities.Bison
                 blastAttack.teamIndex = teamComponent.teamIndex;
                 blastAttack.Fire();
                 Destroy(this.gameObject);
+                Dictionary<string, string> newDictionary = new Dictionary<string, string>
+                {
+                    ["Drone1"] = "drone",
+                    ["Drone2"] = "drone2"
+                };
             }
         }
     }

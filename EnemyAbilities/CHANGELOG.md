@@ -1,5 +1,48 @@
 # Changelog
 
+# 1.16.0
+- Gave Childs a new ability: Spatial Mischief!
+- Greater Wisp inferno wheel fireballs now reset their progress upon the Greater Wisp being stunned.
+
+# 1.15.5
+- Greater Wisp inferno wheel fireballs will now correctly update max health to reflect their config values.
+- Added some more guards to the Brass Contraption ability code to prevent NRE spam.
+
+# 1.15.4
+- Addressed a bug that causes Brass Contraption projectiles to expand infinitely. Was unable to reproduce this bug on my end, but added some guards that should prevent this behaviour.
+
+# 1.15.3
+- Added a load of icons made by DTEE to the mod!
+- Made another attempt to correctly network Angler Eyes. We'll see if this one sticks.
+
+# 1.15.2
+- Beetles now correctly update their stacks of Strength in Numbers to 0 if they're the only beetle nearby.
+- Beetle summon animation duration lasts longer and they now can be interrupted by taking damage.
+- Beetles have additional restrictions on their summon. They have to be more than 40m (adjustable) away from any target, rather than their current target. This should reduce instances of them summoning despite being near the player due to targeting a far-away enemy. They also cannot summon if they have been damaged in the last 10 seconds.
+- Bison rocks now deal 2.5x damage when detonated by a player, allowing it to be used more effectively as a counterattack. Added a configuration option to tune this multiplier.
+- Added config settings for on-kill proc chance for Acid pods. By default these are set to 0.
+
+# 1.15.1
+- Beetles now ACTUALLY retain 100% of their gold and exp reward, and summoned Beetles half.
+- Fixed a bug that stopped Solus Extractors from using Tendril Tether
+- Solus Scorchers' spawn states now last 1 second instead of 0.
+
+# 1.15.0
+- Gave Solus Scorchers a new ability: Jet Boost!
+- Void Anglers now provide vision for their owner Void Reavers, allowing the Reavers to use their primary without direct line of sight.
+- Void Anglers default range reduced (500m => 200m). Attack charge time increased (1.5s => 3s). Add some sound cues and visual touch-ups to their attacks.
+- Summoning Beetles now retain 100% of their gold and exp reward, and summoned Beetles inherit half of that value.
+- Strength in Numbers got a new custom buff icon courtesy of Synodii!
+- Solus Extractors now actually require line of sight to use Tendril Tether.
+- Solus Extractors now unhook early if their continued trajectory would take them away from their target. 
+- Reduced the volume of most of the mod's sounds.
+
+# 1.14.0
+- Gave Beetles a new special ability: Summon Reinforcements!
+- Void Anglers should now correctly appear on clients in multiplayer.
+- Buffed Solus Extractor tether's projectile speed from 100 to 120.
+- Gave Solus Prospectors some new burrowing SFX.
+
 # 1.13.0
 - Gave Brass Contraptions a new special ability: Explosive Toll!
 - Larva caustic pod explosion range now correctly reads the right config option. Default explosion radius restored to 12m.

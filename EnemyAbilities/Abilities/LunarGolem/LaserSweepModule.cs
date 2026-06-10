@@ -71,7 +71,7 @@ namespace EnemyAbilities.Abilities.LunarGolem
                 resetCdOnUse = false,
             };
             SkillDef laserSweep = CreateSkillDef<SkillDef>(skillDefData);
-            CreateGenericSkill(bodyPrefab, laserSweep.skillName, "LunarGolemSpecialFamily", laserSweep, SkillSlot.Special);
+            CreateGenericSkill(bodyPrefab, laserSweep, "LunarGolemSpecialFamily", SkillSlot.Special);
 
             AISkillDriverData driverData = new AISkillDriverData
             {

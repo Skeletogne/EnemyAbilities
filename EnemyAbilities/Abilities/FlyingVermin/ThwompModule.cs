@@ -56,7 +56,7 @@ namespace EnemyAbilities.Abilities.FlyingVermin
                 combatSkill = true
             };
             ThwompSkillDef thwomp = CreateSkillDef<ThwompSkillDef>(skillDefData);
-            CreateGenericSkill(bodyPrefab, thwomp.skillName, "FlyingVerminSecondaryFamily", thwomp, SkillSlot.Secondary);
+            CreateGenericSkill(bodyPrefab, thwomp, "FlyingVerminSecondaryFamily", SkillSlot.Secondary);
             AISkillDriverData driverData1 = new AISkillDriverData
             {
                 masterPrefab = masterPrefab,

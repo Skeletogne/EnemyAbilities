@@ -100,7 +100,7 @@ namespace EnemyAbilities.Abilities.ClayBruiser
                 combatSkill = true
             };
             ClusterGrenadeSkillDef clusterGrenade = CreateSkillDef<ClusterGrenadeSkillDef>(skillData);
-            CreateGenericSkill(bodyPrefab, clusterGrenade.skillName, "ClayBruiserUtilityFamily", clusterGrenade, SkillSlot.Utility);
+            CreateGenericSkill(bodyPrefab, clusterGrenade, "ClayBruiserUtilityFamily", SkillSlot.Utility);
             AISkillDriverData driverData = new AISkillDriverData
             {
                 masterPrefab = masterPrefab,

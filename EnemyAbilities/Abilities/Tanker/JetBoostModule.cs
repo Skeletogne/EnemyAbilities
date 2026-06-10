@@ -12,18 +12,24 @@ using UnityEngine.AddressableAssets;
 using System.Collections.Generic;
 using System.Linq;
 using BepInEx.Configuration;
+using EntityStates;
+using R2API;
+using RoR2.Skills;
+using JetBrains.Annotations;
 
 namespace EnemyAbilities.Abilities.Tanker
 {
-    [EnemyAbilities.ModuleInfo("Smarter AI", "Gives Solus Scorchers smarter AI. They'll now prioritise using their flamethrower directly onto oiled targets before using it on oil puddles. They will also prioritise firing their oil puddle at non-flying targets. Oil puddles will now use the damage of their activator.", "Solus Scorcher", true)]
+    [EnemyAbilities.ModuleInfo("Jet Boost", "Gives Solus Scorchers a new Utility:\n-Jet Boost: Allows Solus Scorchers to dash forwards towards their current target. This module also incorporates many changes to the AI of Solus Scorchers, making them prioritise oiled players over their oil blobs. Also fixes numerous odd inconsistencies with Scorcher damage team affiliation and oil blob team affiliation.", "Solus Scorcher", true)]
 
-    public class SmarterScorcherModule : BaseModule
+    public class JetBoostModule : BaseModule
     {
         private static GameObject bodyPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC3_Tanker.TankerBody_prefab).WaitForCompletion();
         private static GameObject masterPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC3_Tanker.TankerMaster_prefab).WaitForCompletion();
         private static EntityStateConfiguration escIgnite = Addressables.LoadAssetAsync<EntityStateConfiguration>(RoR2_DLC3_Tanker.EntityStates_Tanker_Ignite_asset).WaitForCompletion();
         private static GameObject greaseProjectilePrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC3_Tanker.TankerAccelerantPuddleBodyProjectile_prefab).WaitForCompletion();
         private static CharacterSpawnCard csc = Addressables.LoadAssetAsync<CharacterSpawnCard>(RoR2_DLC3_Tanker.cscTanker_asset).WaitForCompletion();
+        private static SkillDef ignite = Addressables.LoadAssetAsync<SkillDef>(RoR2_DLC3_Tanker.TankerIgnite_asset).WaitForCompletion();
+        private static EntityStateConfiguration escSpawn = Addressables.LoadAssetAsync<EntityStateConfiguration>(RoR2_DLC3_Tanker.EntityStates_Tanker_SpawnState_asset).WaitForCompletion();
 
         private static readonly string fireAtOilTargetName = "fireAtOilTarget";
         private static readonly string fleeOilTargetName = "fleeOilTarget";
@@ -36,22 +42,80 @@ namespace EnemyAbilities.Abilities.Tanker
         private static readonly string chaseTargetName = "chaseTarget";
         private static readonly string chaseTargetFarName = "chaseTargetFar";
 
+        private static SkillDef jetBoost;
+        private static ConfigEntry<float> jetBoostCooldown;
+        private static ConfigEntry<float> jetBoostSpeedMult;
+        private static ConfigEntry<float> accelerantEnemyDamage;
+        private static ConfigEntry<float> accelerantPlayerDamage;
+
         public override void RegisterConfig()
         {
             base.RegisterConfig();
             BindStats(bodyPrefab, [csc], new StatOverrides { directorCost = 28 });
+            jetBoostCooldown = BindFloat("Jet Boost Cooldown", 3f, "Cooldown of the skill. Note that Jet Boost is only selected when the Scorcher has an oil target.", 2f, 10f, 0.1f, PluginConfig.FormatType.Time);
+            jetBoostSpeedMult = BindFloat("Jet Boost Speed", 300f, "The Solus Scorcher's top speed compared to it's base movement speed at the start of Jet Boost.", 200f, 400f, 1f, PluginConfig.FormatType.Percentage);
+            accelerantEnemyDamage = BindFloat("Grease Explosion Damage (Enemy)", 200f, "The damage coefficient of grease puddles when ignited by an enemy.", 100f, 400f, 5f, PluginConfig.FormatType.Percentage);
+            accelerantPlayerDamage = BindFloat("Grease Explosion Damage (Player)", 600f, "The damage coefficient of grease puddles when ignited by a player.", 100f, 1000f, 5f, PluginConfig.FormatType.Percentage);
         }
         public override void Initialise()
         {
             base.Initialise();
+            escSpawn.TryModifyFieldValue(nameof(EntityStates.Tanker.SpawnState.duration), 1f);
+            CreateSkillDef();
             bodyPrefab.AddComponent<TankerBehaviourController>();
             ProjectileSetOwnerAICustomTarget component = greaseProjectilePrefab.GetComponent<ProjectileSetOwnerAICustomTarget>();
             DestroyImmediate(component);
+            AssignTeamFilterToTeamComponent assignFilter = greaseProjectilePrefab.GetComponent<AssignTeamFilterToTeamComponent>();
+            if (assignFilter != null)
+            {
+                DestroyImmediate(component);
+            }
             greaseProjectilePrefab.AddComponent<AccelerantController>();
             IL.RoR2.HealthComponent.TakeDamageProcess += ModifyAccelerantDamage;
+            IL.EntityStates.Tanker.Ignite.FireFlamethrower += ChangeIgniteTeamIndexOverride;
             escIgnite.TryModifyFieldValue(nameof(Ignite.tickFrequency), 6f);
             escIgnite.TryModifyFieldValue(nameof(Ignite.totalDamageCoefficient), 2f);
             CreateNewDrivers();
+            ignite.baseRechargeInterval = 1f;
+            ignite.beginSkillCooldownOnSkillEnd = true;
+        }
+        private void ChangeIgniteTeamIndexOverride(ILContext il)
+        {
+            ILCursor c1 = new ILCursor(il);
+            if (c1.TryGotoNext(
+                x => x.MatchStfld<BulletAttack>(nameof(BulletAttack.teamIndexOverride))
+            ))
+            {
+                c1.Emit(OpCodes.Ldarg_0);
+                c1.EmitDelegate<Func<TeamIndex?, EntityState, TeamIndex?>>((originalValue, entityState) =>
+                {
+                    if (entityState != null && entityState.characterBody != null && entityState.characterBody.teamComponent != null)
+                    {
+                        return entityState.characterBody.teamComponent.teamIndex;
+                    }
+                    return originalValue;
+                });
+            }
+            else
+            {
+                Log.Error($"ChangeIgniteTeamIndexOverride cursor c1 failed to match!");
+            }
+        }
+        public void CreateSkillDef()
+        {
+            SkillDefData skillDefData = new SkillDefData
+            {
+                objectName = "TankerBodyJetBoost",
+                skillName = "TankerJetBoost",
+                esmName = "Weapon",
+                activationState = ContentAddition.AddEntityState<JetBoost>(out _),
+                cooldown = jetBoostCooldown.Value,
+                baseMaxStock = 1,
+                combatSkill = false,
+                intPrio = InterruptPriority.Any
+            };
+            jetBoost = CreateSkillDef<JetBoostSkillDef>(skillDefData);
+            CreateGenericSkill(bodyPrefab, jetBoost, "TankerUtilityFamily", SkillSlot.Utility);
         }
         public void CreateNewDrivers()
         {
@@ -66,7 +130,7 @@ namespace EnemyAbilities.Abilities.Tanker
                 targetType = AISkillDriver.TargetType.Custom,
                 aimType = AISkillDriver.AimType.AtMoveTarget,
                 movementType = AISkillDriver.MovementType.ChaseMoveTarget,
-                driverUpdateTimerOverride = 2f,
+                driverUpdateTimerOverride = 2.5f,
                 moveInputScale = 0.5f,
                 desiredIndex = 0,
             };
@@ -94,6 +158,19 @@ namespace EnemyAbilities.Abilities.Tanker
                 movementType = AISkillDriver.MovementType.StrafeMovetarget,
                 desiredIndex = 2
             };
+            AISkillDriverData chaseOilTargetWithUtil = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = chaseOilTargetName,
+                skillSlot = SkillSlot.Utility,
+                requiredSkillDef = jetBoost,
+                minDistance = 0f,
+                maxDistance = 40f,
+                targetType = AISkillDriver.TargetType.Custom,
+                aimType = AISkillDriver.AimType.AtMoveTarget,
+                movementType = AISkillDriver.MovementType.ChaseMoveTarget,
+                desiredIndex = 3,
+            };
             AISkillDriverData chaseOilTarget = new AISkillDriverData
             {
                 masterPrefab = masterPrefab,
@@ -104,7 +181,7 @@ namespace EnemyAbilities.Abilities.Tanker
                 targetType = AISkillDriver.TargetType.Custom,
                 aimType = AISkillDriver.AimType.AtMoveTarget,
                 movementType = AISkillDriver.MovementType.ChaseMoveTarget,
-                desiredIndex = 3
+                desiredIndex = 4
             };
             AISkillDriverData fireAtTarget = new AISkillDriverData
             {
@@ -117,9 +194,9 @@ namespace EnemyAbilities.Abilities.Tanker
                 targetType = AISkillDriver.TargetType.Custom,
                 aimType = AISkillDriver.AimType.AtMoveTarget,
                 movementType = AISkillDriver.MovementType.ChaseMoveTarget,
-                driverUpdateTimerOverride = 2f,
+                driverUpdateTimerOverride = 2.5f,
                 noRepeat = true,
-                desiredIndex = 4
+                desiredIndex = 5
             };
             AISkillDriverData fleeTarget = new AISkillDriverData
             {
@@ -131,7 +208,7 @@ namespace EnemyAbilities.Abilities.Tanker
                 targetType = AISkillDriver.TargetType.Custom,
                 aimType = AISkillDriver.AimType.AtMoveTarget,
                 movementType = AISkillDriver.MovementType.FleeMoveTarget,
-                desiredIndex = 5
+                desiredIndex = 6
             };
             AISkillDriverData fireAccelerant = new AISkillDriverData
             {
@@ -144,7 +221,7 @@ namespace EnemyAbilities.Abilities.Tanker
                 targetType = AISkillDriver.TargetType.Custom,
                 aimType = AISkillDriver.AimType.AtMoveTarget,
                 movementType = AISkillDriver.MovementType.StrafeMovetarget,
-                desiredIndex = 6
+                desiredIndex = 7
             };
             AISkillDriverData strafeTarget = new AISkillDriverData
             {
@@ -156,7 +233,7 @@ namespace EnemyAbilities.Abilities.Tanker
                 targetType = AISkillDriver.TargetType.Custom,
                 aimType = AISkillDriver.AimType.AtMoveTarget,
                 movementType = AISkillDriver.MovementType.StrafeMovetarget,
-                desiredIndex = 7
+                desiredIndex = 8
             };
             AISkillDriverData chaseTarget = new AISkillDriverData
             {
@@ -168,7 +245,20 @@ namespace EnemyAbilities.Abilities.Tanker
                 targetType = AISkillDriver.TargetType.Custom,
                 aimType = AISkillDriver.AimType.AtMoveTarget,
                 movementType = AISkillDriver.MovementType.ChaseMoveTarget,
-                desiredIndex = 8
+                desiredIndex = 9
+            };
+            AISkillDriverData chaseTargetWithUtil = new AISkillDriverData
+            {
+                masterPrefab = masterPrefab,
+                customName = chaseTargetName,
+                skillSlot = SkillSlot.Utility,
+                selectionRequiresTargetLoS = true,
+                minDistance = 60f,
+                maxDistance = 100f,
+                targetType = AISkillDriver.TargetType.Custom,
+                aimType = AISkillDriver.AimType.AtMoveTarget,
+                movementType = AISkillDriver.MovementType.ChaseMoveTarget,
+                desiredIndex = 10
             };
             AISkillDriverData chaseTargetFar = new AISkillDriverData
             {
@@ -180,12 +270,13 @@ namespace EnemyAbilities.Abilities.Tanker
                 targetType = AISkillDriver.TargetType.CurrentEnemy,
                 aimType = AISkillDriver.AimType.AtCurrentEnemy,
                 movementType = AISkillDriver.MovementType.ChaseMoveTarget,
-                desiredIndex = 9
+                desiredIndex = 11
             };
             CreateAISkillDriver(fireAtOilTarget);
             CreateAISkillDriver(fleeOilTarget);
             CreateAISkillDriver(strafeOilTarget);
             CreateAISkillDriver(chaseOilTarget);
+            CreateAISkillDriver(chaseOilTargetWithUtil);
             CreateAISkillDriver(fireAtTarget);
             CreateAISkillDriver(fleeTarget);
             CreateAISkillDriver(fireAccelerant);
@@ -224,6 +315,10 @@ namespace EnemyAbilities.Abilities.Tanker
                     return originalValue;
                 });
             }
+            else
+            {
+                Log.Error($"ModifyAccelerantDamage ILCursor c1 failed to match!");
+            }
             ILCursor c2 = new ILCursor(il);
             if (c2.TryGotoNext(
                 x => x.MatchLdloc(62),
@@ -235,6 +330,10 @@ namespace EnemyAbilities.Abilities.Tanker
                 {
                     return new DamageTypeCombo { damageSource = DamageSource.Secondary, damageType = DamageType.IgniteOnHit };
                 });
+            }
+            else
+            {
+                Log.Error($"ModifyAccelerantDamage ILCursor c2 failed to match!");
             }
         }
         public bool TryCalculateIgnitionDamage(GameObject attacker, out float damage)
@@ -249,10 +348,65 @@ namespace EnemyAbilities.Abilities.Tanker
             if (attackerBody != null && teamComponent != null)
             {
                 bool isPlayer = teamComponent.teamIndex == TeamIndex.Player;
-                damage = attackerBody.damage * (isPlayer ? 6f : 2f);
+                damage = attackerBody.damage * (isPlayer ? accelerantPlayerDamage.Value / 100f : accelerantEnemyDamage.Value / 100f);
                 return true;
             }
             return false;
+        }
+        public class JetBoostSkillDef : SkillDef
+        {
+            public override bool IsReady([NotNull] GenericSkill skillSlot)
+            {
+                return base.IsReady(skillSlot);
+            }
+        }
+        public class JetBoost : BaseSkillState
+        {
+            private float duration;
+            private static float baseDuration = 0.5f;
+            private float jetBoostSpeedMultiplier = jetBoostSpeedMult.Value / 100f;
+            private float jetBoostSpeed;
+            private Vector3 startAimVector;
+            private float startMoveSpeed;
+            private static GameObject fireEffect = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC2_FalseSon.FalseSonLaserMuzzleFlashFire_prefab).WaitForCompletion();
+            public override void OnEnter()
+            {
+                base.OnEnter();
+                Util.PlaySound("Play_mage_m1_shoot", this.gameObject);
+                duration = baseDuration / attackSpeedStat;
+                startMoveSpeed = moveSpeedStat;
+                jetBoostSpeed = startMoveSpeed * jetBoostSpeedMultiplier;
+                if (inputBank == null)
+                {
+                    return;
+                }
+                Vector3 aimDirection = inputBank.aimDirection;
+                startAimVector = aimDirection;
+                EffectManager.SimpleEffect(fireEffect, transform.position, Util.QuaternionSafeLookRotation(-aimDirection), true);
+            }
+            public override void OnExit()
+            {
+                base.OnExit();
+            }
+            public override void FixedUpdate()
+            {
+                base.FixedUpdate();
+                float scaling = Mathf.Pow(1 - Mathf.Clamp01(base.fixedAge / duration), 0.5f);
+                if (rigidbody != null)
+                {
+                    Vector3 targetVelocity = startAimVector * (startMoveSpeed + (scaling * (jetBoostSpeed - startMoveSpeed)));
+                    Vector3 newVelocity = Vector3.Lerp(rigidbody.velocity, targetVelocity, 0.5f);
+                    rigidbody.velocity = newVelocity;
+                }
+                if (base.fixedAge > duration)
+                {
+                    outer.SetNextStateToMain();
+                }
+            }
+            public override InterruptPriority GetMinimumInterruptPriority()
+            {
+                return InterruptPriority.PrioritySkill;
+            }
         }
         public class TankerBehaviourController : MonoBehaviour
         {
@@ -263,7 +417,6 @@ namespace EnemyAbilities.Abilities.Tanker
             private static float oilCheckDistance = 16f;
             private float searchTimer;
             private BaseAI baseAI;
-
             private List<AISkillDriver> oilTargetDrivers = new List<AISkillDriver>();
 
             public void Start()
@@ -460,6 +613,11 @@ namespace EnemyAbilities.Abilities.Tanker
         }
         public class AccelerantController : MonoBehaviour
         {
+            public void Start()
+            {
+                TeamComponent component = GetComponent<TeamComponent>();
+                component.teamIndex = TeamIndex.Neutral;
+            }
             public void OnEnable()
             {
                 InstanceTracker.Add(this);

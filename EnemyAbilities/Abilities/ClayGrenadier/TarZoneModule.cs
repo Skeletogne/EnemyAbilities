@@ -51,6 +51,8 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
         internal static ConfigEntry<float> dotZoneDamagePercent;
         internal static ConfigEntry<float> dotDuration;
 
+        private static BuffDef chargeArmorBuff;
+
         public override void RegisterConfig()
         {
             base.RegisterConfig();
@@ -72,6 +74,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
         public override void Initialise()
         {
             base.Initialise();
+            CreateBuffDef();
             SkillSetup();
             ModifyTarZonePrefab();
             ModifyBigTarBallPrefab();
@@ -164,7 +167,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 combatSkill = true
             };
             SkillDef tarZone = CreateSkillDef<SkillDef>(skillData);
-            CreateGenericSkill(bodyPrefab, tarZone.skillName, "ClayGrenadierSpecialFamily", tarZone, SkillSlot.Special);
+            CreateGenericSkill(bodyPrefab, tarZone, "ClayGrenadierSpecialFamily", SkillSlot.Special);
             AISkillDriverData driverData = new AISkillDriverData
             {
                 masterPrefab = masterPrefab,
@@ -182,6 +185,16 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
             };
             CreateAISkillDriver(driverData);
 
+        }
+        public void CreateBuffDef()
+        {
+            Texture2D texture2D = EnemyAbilities.Instance.assetBundle.LoadAsset<Texture2D>("texGrenadierShieldIcon");
+            chargeArmorBuff = ScriptableObject.CreateInstance<BuffDef>();
+            chargeArmorBuff.stackingDisplayMethod = BuffDef.StackingDisplayMethod.Percentage;
+            chargeArmorBuff.canStack = true;
+            chargeArmorBuff.iconSprite = Utils.CreateSprite(texture2D);
+            chargeArmorBuff.isHidden = false;
+            ContentAddition.AddBuffDef(chargeArmorBuff);
         }
         public void ModifyTarZonePrefab()
         {
@@ -357,7 +370,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 base.FixedUpdate();
                 if (characterBody != null && base.fixedAge >= windupDuration)
                 {
-                    characterBody.SetBuffCount(RoR2Content.Buffs.ArmorBoost.buffIndex, 1);
+                    
                     if (!chargeController.charging && !spawnedProjectile)
                     {
                         spawnedProjectile = true;
@@ -397,7 +410,6 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 characterMotor.walkSpeedPenaltyCoefficient = 1f;
                 skillLocator.primary.UnsetSkillOverride(this.gameObject, CharacterBody.CommonAssets.disabledSkill, GenericSkill.SkillOverridePriority.Contextual);
                 skillLocator.secondary.UnsetSkillOverride(this.gameObject, CharacterBody.CommonAssets.disabledSkill, GenericSkill.SkillOverridePriority.Contextual);
-                characterBody.SetBuffCount(RoR2Content.Buffs.ArmorBoost.buffIndex, 0);
             }
             public override InterruptPriority GetMinimumInterruptPriority()
             {
@@ -587,6 +599,7 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                         if (percentageCharge < 1)
                         {
                             int totalFliers = Mathf.Min((int)(damagePercentage / 0.004f), 10);
+                            totalFliers = Mathf.Max(1, totalFliers);
                             for (int i = 0; i < totalFliers; i++)
                             {
                                 GameObject trailGameObject = new GameObject();
@@ -635,7 +648,17 @@ namespace EnemyAbilities.Abilities.ClayGrenadier
                 }
             }
             public void FixedUpdate()
-            { 
+            {
+                if (charging == true)
+                {
+                    int buffCount = (int)(percentageCharge * 100f);
+                    buffCount = Mathf.Max(buffCount, 1);
+                    body.SetBuffCount(chargeArmorBuff.buffIndex, buffCount);
+                }
+                else if (body.GetBuffCount(chargeArmorBuff) > 0)
+                {
+                    body.SetBuffCount(chargeArmorBuff.buffIndex, 0);
+                }
                 if (tarBallInstance != null)
                 {
                     tarBallInstance.transform.position = tarBallTransform.position;

@@ -85,7 +85,7 @@ namespace EnemyAbilities.Abilities.Vulture
             };
             SwoopSkillDef swoop = CreateSkillDef<SwoopSkillDef>(skillDefData);
             ContentAddition.AddEntityState<Swoop>(out _);
-            CreateGenericSkill(bodyPrefab, swoop.skillName, "VultureSecondaryFamily", swoop, SkillSlot.Secondary);
+            CreateGenericSkill(bodyPrefab, swoop, "VultureSecondaryFamily", SkillSlot.Secondary);
 
             AISkillDriverData driverData = new AISkillDriverData
             {

@@ -122,9 +122,11 @@ namespace EnemyAbilities.Abilities.Gravekeeper
         }
         private void CreateGravekeeperBuff()
         {
+            Texture2D texture2D = EnemyAbilities.Instance.assetBundle.LoadAsset<Texture2D>("texGrovetenderShieldIcon");
             GravekeeperArmorBuff = ScriptableObject.CreateInstance<BuffDef>();
             GravekeeperArmorBuff.canStack = true;
-            GravekeeperArmorBuff.isHidden = true;
+            GravekeeperArmorBuff.isHidden = false;
+            GravekeeperArmorBuff.iconSprite = Utils.CreateSprite(texture2D);
             ContentAddition.AddBuffDef(GravekeeperArmorBuff);
 
             IL.RoR2.CharacterBody.UpdateAllTemporaryVisualEffects += (il) =>
@@ -193,7 +195,7 @@ namespace EnemyAbilities.Abilities.Gravekeeper
                 combatSkill = true
             };
             ResurrectSkillDef massResurrect = CreateSkillDef<ResurrectSkillDef>(skillData);
-            CreateGenericSkill(bodyPrefab, massResurrect.skillName, "GravekeeperSpecialFamily", massResurrect, SkillSlot.Special);
+            CreateGenericSkill(bodyPrefab, massResurrect, "GravekeeperSpecialFamily", SkillSlot.Special);
             AISkillDriverData driverData = new AISkillDriverData
             {
                 masterPrefab = masterPrefab,

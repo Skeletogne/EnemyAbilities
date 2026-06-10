@@ -35,6 +35,7 @@ namespace EnemyAbilities.Abilities.AcidLarva
         internal static ConfigEntry<float> poisonDuration;
         internal static ConfigEntry<float> podExplosionRadius;
         internal static ConfigEntry<float> travelTime;
+        internal static ConfigEntry<float> onKillChance;
 
         public override void RegisterConfig()
         {
@@ -46,6 +47,7 @@ namespace EnemyAbilities.Abilities.AcidLarva
             poisonDuration = BindFloat("Caustic Pod Poison Duration", 5f, "Duration of the poison effect", 0f, 10f, 0.1f, FormatType.Time);
             podExplosionRadius = BindFloat("Caustic Pod Explosion Radius", 12f, "Radius of the pod explosion", 6f, 18f, 0.1f, FormatType.Distance);
             travelTime = BindFloat("Caustic Pod Travel Time", 1.5f, "Time for the projectile to reach its target", 0.5f, 3f, 0.1f, FormatType.Time);
+            onKillChance = BindFloat("Caustic Pod On-Kill Proc Chance", 0f, "The chance to trigger on-kill effects when killing caustic pods", 0f, 100f, 1f, FormatType.Percentage);
             BindStats(bodyPrefab, [cscLarva]);
         }
         public override void Initialise()
@@ -87,6 +89,8 @@ namespace EnemyAbilities.Abilities.AcidLarva
             CharacterBody body = acidPodPrefab.GetComponent<CharacterBody>();
             body.baseDamage = 12f;
             body.levelDamage = 2.4f;
+            HealthComponent healthComponent = acidPodPrefab.GetComponent<HealthComponent>();
+            healthComponent.globalDeathEventChanceCoefficient = onKillChance.Value / 100f;
             body.baseNameToken = "SKELETOGNE_ACIDPOD_BODY_NAME";
             LanguageAPI.Add("SKELETOGNE_ACIDPOD_BODY_NAME", "Caustic Pod");
         }
@@ -102,7 +106,7 @@ namespace EnemyAbilities.Abilities.AcidLarva
                 combatSkill = true
             };
             SkillDef spawnAcidPod = CreateSkillDef<SkillDef>(skillData);
-            CreateGenericSkill(bodyPrefab, skillData.skillName, "AcidLarvaSecondaryFamily", spawnAcidPod, SkillSlot.Secondary);
+            CreateGenericSkill(bodyPrefab, spawnAcidPod, "AcidLarvaSecondaryFamily", SkillSlot.Secondary);
             AISkillDriverData driverData = new AISkillDriverData
             {
                 masterPrefab = masterPrefab,
@@ -212,19 +216,12 @@ namespace EnemyAbilities.Abilities.AcidLarva
         }
         public class AcidLarvaPodDeath : GenericCharacterDeath
         {
-
             public static GameObject explosionEffectPrefab = Addressables.LoadAssetAsync<GameObject>(RoR2_DLC1_SulfurPod.SulfurPodExplosion_prefab).WaitForCompletion();
-
             public static float explosionRadius = podExplosionRadius.Value;
-
             public static float explosionDamageCoefficient = damage.Value / 100f;
-
             public static float explosionProcCoefficient = poisonDuration.Value / 10f;
-
             public static float explosionForce = 1500f;
-
             private bool hasExploded;
-
             public override void OnEnter()
             {
                 base.OnEnter();
